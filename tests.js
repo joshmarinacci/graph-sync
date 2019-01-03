@@ -111,26 +111,115 @@ check
 
 */
 
-// test('undo',t => {
-//     const undo = new UndoQueue()
-//     undo.listen(sync)
-//
-//     const R = sync.createObject()
-//     sync.createProperty(R,'x',100)
-//     sync.setProperty(R,'x',200)
-//     t.deepEquals(undo.dump(),[
-//         {type:'CREATE_OBJECT'},
-//         {type:'CREATE_PROPERTY',name:'x',value:100},
-//         {type:'UPDATE_PROPERTY',name:'x',value:200},
-//     ])
-//
-//     t.equals(sync.getPropertyValue(R,'x'),200)
-//
-//     undo.undo()
-//     t.equals(sync.getPropertyValue(R,'x'),100)
-//     undo.redo()
-//     t.equals(sync.getPropertyValue(R,'x'),200)
-// })
+test('undo',t => {
+    class UndoQueue {
+        constructor(graph) {
+            this.graph = graph
+            this.history = []
+            this.current = 0
+            graph.onChange((e)=>{
+                console.log('graph changed',e)
+                this.current++
+                if(e.type === CREATE_OBJECT) {
+                    this.history.push({
+                        type:e.type,
+                        object:e.object
+                    })
+                    return
+                }
+                if(e.type === CREATE_PROPERTY) {
+                    this.history.push({
+                        type:e.type,
+                        object:e.object,
+                        name:e.name,
+                        value:e.value
+                    })
+                    return
+                }
+                if(e.type === SET_PROPERTY) {
+                    console.log("looking for last",this.findLastPropertyValue(e.object, e.name))
+                    this.history.push({
+                        id:Math.random(),
+                        type: e.type,
+                        object: e.object,
+                        name: e.name,
+                        oldValue: this.findLastPropertyValue(e.object, e.name),
+                        newValue: e.value
+                    })
+                }
+            })
+        }
+        undo() {
+            this.current--
+            const last = this.history[this.current]
+            console.log("last is",last)
+            if(last.type === SET_PROPERTY) {
+                console.log("undoing")
+                this.graph.setProperty(last.object,last.name, last.oldValue)
+                return
+            }
+            throw new Error(`undo for type not supported: ${last.type}`)
+        }
+        redo() {
+            const last = this.history[this.current]
+            console.log("last is",last)
+            if(last.type === SET_PROPERTY) {
+                console.log("redoing")
+                this.graph.setProperty(last.object,last.name,last.oldValue)
+                return
+            }
+            throw new Error(`redo for type not supported: ${last.type}`)
+        }
+        findLastPropertyValue(objid,propname) {
+            for(let i=this.history.length-1; i>=0; i--) {
+                const h = this.history[i]
+                if(h.object === objid && h.name === propname) {
+                    if(h.type === SET_PROPERTY) return h.newValue
+                    if(h.type === CREATE_PROPERTY) return h.value
+                }
+            }
+            console.error(`could not find history entry for property ${objid}:${propname}`)
+            return null
+        }
+        dump() {
+            return this.history.map(h=>{
+                const entry = {
+                    type:h.type
+                }
+                if(h.type === CREATE_PROPERTY) {
+                    entry.name = h.name
+                    entry.value = h.value
+                }
+                if(h.type === SET_PROPERTY) {
+                    entry.name = h.name
+                    entry.oldValue = h.oldValue
+                    entry.newValue = h.newValue
+                }
+                return entry
+            })
+        }
+    }
+
+    const sync = new ObjectSyncProtocol()
+    const undoqueue = new UndoQueue(sync)
+
+    const R = sync.createObject()
+    sync.createProperty(R,'x',100)
+    sync.setProperty(R,'x',200)
+    t.deepEquals(undoqueue.dump(),[
+        {type:CREATE_OBJECT},
+        {type:CREATE_PROPERTY,name:'x',value:100},
+        {type:SET_PROPERTY,name:'x',oldValue:100, newValue:200},
+    ])
+
+    t.equals(sync.getPropertyValue(R,'x'),200)
+
+    undoqueue.undo()
+    t.equals(sync.getPropertyValue(R,'x'),100)
+    undoqueue.redo()
+    t.equals(sync.getPropertyValue(R,'x'),200)
+    t.end()
+})
 
 
 /*
