@@ -69,12 +69,16 @@ test('sync', t => {
     const A = new ObjectSyncProtocol()
     const B = new ObjectSyncProtocol()
 
-    A.onChange(e =>{
-        console.log("A changed",e)
-        if(e.type === CREATE_OBJECT) B.createObject(e.id)
-        if(e.type === CREATE_PROPERTY) B.createProperty(e.object, e.name, e.value)
-    })
-
+    function sync(X,Y) {
+        X.onChange(e => {
+            console.log("client changed",e)
+            if(e.type === CREATE_OBJECT) Y.createObject(e.id)
+            if(e.type === CREATE_PROPERTY) Y.createProperty(e.object, e.name, e.value)
+            if(e.type === SET_PROPERTY) Y.setProperty(e.object, e.name, e.value)
+        })
+    }
+    sync(A,B)
+    sync(B,A)
 
     const aR1 = A.createObject()
     A.createProperty(aR1,'id','R')
@@ -83,18 +87,17 @@ test('sync', t => {
     t.deepEquals(A.dumpGraph(), { R: {id: 'R',x:100} })
     t.deepEquals(B.dumpGraph(), { R: {id: 'R',x:100} })
 
-    t.end()
 
-//
-//     sync(A,B)
-//
-//     const bR1 = B.getObjectByProperty('id','R')
-//     B.setProperty(bR1,'x',200)
-//
-//     sync(A,B)
-//
-//     const aR2 = A.getObjectByProperty('id','R')
-//     t.equal(A.getProperty(aR2,'x'),200)
+    const bR1 = B.getObjectByProperty('id','R')
+    B.setProperty(bR1,'x',200)
+
+    t.deepEquals(A.dumpGraph(), { R: {id:'R',x:200}})
+    t.deepEquals(B.dumpGraph(), { R: {id:'R',x:200}})
+
+
+    const aR2 = A.getObjectByProperty('id','R')
+    t.equal(A.getPropertyValue(aR2,'x'),200)
+    t.end()
 })
 
 /*

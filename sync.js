@@ -18,6 +18,10 @@ class ObjectSyncProtocol {
         const obj = {
             _id:objid?objid:makeGUID()
         }
+        if(this.objs[obj._id]) {
+            console.log("already exists. don't fire or change")
+            return obj._id
+        }
         this.objs[obj._id] = obj
         this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id})
         return obj._id
@@ -28,6 +32,10 @@ class ObjectSyncProtocol {
     createProperty(objid, name, value) {
         const obj = this.getObjectById(objid)
         if(!obj) console.error(`Cannot set property ${name} on object ${objid} that does not exist`)
+        if(obj[name]) {
+            console.log("property already exists. don't fire or change")
+            return
+        }
         obj[name] = value
         this.fire({
             type:EVENT_TYPES.CREATE_PROPERTY,
@@ -38,8 +46,17 @@ class ObjectSyncProtocol {
     }
     setProperty(objid,name,value) {
         const obj = this.getObjectById(objid)
+        if(obj[name] === value) {
+            console.log("property already has this value, don't fire or change")
+            return
+        }
         obj[name] = value
-        this.fire({type:EVENT_TYPES.SET_PROPERTY,name:name,value:value})
+        this.fire({
+            type:EVENT_TYPES.SET_PROPERTY,
+            object:objid,
+            name:name,
+            value:value
+        })
     }
 
     onChange(cb) {
@@ -47,6 +64,20 @@ class ObjectSyncProtocol {
     }
     fire(event) {
         this.listeners.forEach(cb => cb(event))
+    }
+
+    getObjectByProperty(key,value) {
+        for(let id in this.objs) {
+            const obj = this.objs[id]
+            // console.log('obj',id,':',obj)
+            // console.log("checking",key,value)
+            if(obj[key] === value) return obj._id
+        }
+        return null
+    }
+
+    getPropertyValue(objid, key) {
+        return this.getObjectById(objid)[key]
     }
 
     dumpGraph() {
