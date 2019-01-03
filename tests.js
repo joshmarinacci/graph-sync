@@ -1,9 +1,10 @@
 const test = require('tape')
 const Sync = require('./sync.js')
-const ObjectSyncProtocol = Sync.ObjectSyncProtocol
+const {ObjectSyncProtocol, SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY} = Sync
 
-// create object A as child of root with property x = 100
-
+/*
+ create object A as child of root with property x = 100
+  */
 test('basic',t => {
     const sync = new ObjectSyncProtocol()
     const root = sync.createObject()
@@ -15,12 +16,12 @@ test('basic',t => {
     sync.createProperty(A,'x',100)
 
     sync.createProperty(root,'children',[])
-    sync.setProperty(root,'children',[sync.getId(A)])
+    sync.setProperty(root,'children',[A])
 
 
     const graph1 = sync.dumpGraph()
     t.deepEquals(graph1, {
-        root: {id: 'root', children: [sync.getId(A)]},
+        root: {id: 'root', children: [A]},
         A: {id: 'A',x:100},
     })
     t.end()
@@ -31,14 +32,12 @@ test('basic',t => {
  * set x to 200
  * dump the history. shows create object, create prop, set prop
  */
-
-
 test('history', t => {
     const sync = new ObjectSyncProtocol()
     const history = []
     sync.onChange((e)=>{
         const obj = { type:e.type}
-        if(e.type === 'CREATE_PROPERTY' || e.type === 'SET_PROPERTY') {
+        if(e.type === CREATE_PROPERTY || e.type === SET_PROPERTY) {
             obj.name = e.name
             obj.value = e.value
         }
@@ -50,10 +49,10 @@ test('history', t => {
     sync.setProperty(A,'x',200)
 
     t.deepEquals(history,[
-        { type:'CREATE_OBJECT'},
-        { type:'CREATE_PROPERTY',name:'id',value:'A'},
-        { type:'CREATE_PROPERTY',name:'x',value:100},
-        { type:'SET_PROPERTY',name:'x',value:200},
+        { type:CREATE_OBJECT},
+        { type:CREATE_PROPERTY,name:'id',value:'A'},
+        { type:CREATE_PROPERTY,name:'x',value:100},
+        { type:SET_PROPERTY,name:'x',value:200},
     ])
 
     t.end()
@@ -66,14 +65,26 @@ user B sets R.x to 200
 sync
 user A can see R.x = 200
 */
-// test('sync', t => {
-//
-//     const A = null
-//     const B = null
-//
-//     const aR1 = A.createObject()
-//     A.createProperty(aR1,'id','R')
-//     A.createProperty(aR1,'x',100)
+test('sync', t => {
+    const A = new ObjectSyncProtocol()
+    const B = new ObjectSyncProtocol()
+
+    A.onChange(e =>{
+        console.log("A changed",e)
+        if(e.type === CREATE_OBJECT) B.createObject(e.id)
+        if(e.type === CREATE_PROPERTY) B.createProperty(e.object, e.name, e.value)
+    })
+
+
+    const aR1 = A.createObject()
+    A.createProperty(aR1,'id','R')
+    A.createProperty(aR1,'x',100)
+
+    t.deepEquals(A.dumpGraph(), { R: {id: 'R',x:100} })
+    t.deepEquals(B.dumpGraph(), { R: {id: 'R',x:100} })
+
+    t.end()
+
 //
 //     sync(A,B)
 //
@@ -84,7 +95,7 @@ user A can see R.x = 200
 //
 //     const aR2 = A.getObjectByProperty('id','R')
 //     t.equal(A.getProperty(aR2,'x'),200)
-// })
+})
 
 /*
 create object R with R.x = 100

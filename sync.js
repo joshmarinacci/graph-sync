@@ -1,3 +1,8 @@
+const EVENT_TYPES = {
+    CREATE_OBJECT:'CREATE_OBJECT',
+    CREATE_PROPERTY:'CREATE_PROPERTY',
+    SET_PROPERTY:'SET_PROPERTY',
+}
 let current_id = 0;
 function makeGUID() {
     current_id++
@@ -9,24 +14,32 @@ class ObjectSyncProtocol {
         this.objs = {}
         this.listeners = []
     }
-    createObject() {
+    createObject(objid) {
         const obj = {
-            _id:makeGUID()
+            _id:objid?objid:makeGUID()
         }
         this.objs[obj._id] = obj
-        this.fire({type:'CREATE_OBJECT',id:obj._id})
-        return this.objs[obj._id]
-    }
-    createProperty(obj, name, value) {
-        obj[name] = value
-        this.fire({type:'CREATE_PROPERTY',name:name,value:value})
-    }
-    setProperty(obj,name,value) {
-        obj[name] = value
-        this.fire({type:'SET_PROPERTY',name:name,value:value})
-    }
-    getId(obj) {
+        this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id})
         return obj._id
+    }
+    getObjectById(objid) {
+        return this.objs[objid]
+    }
+    createProperty(objid, name, value) {
+        const obj = this.getObjectById(objid)
+        if(!obj) console.error(`Cannot set property ${name} on object ${objid} that does not exist`)
+        obj[name] = value
+        this.fire({
+            type:EVENT_TYPES.CREATE_PROPERTY,
+            object:objid,
+            name:name,
+            value:value
+        })
+    }
+    setProperty(objid,name,value) {
+        const obj = this.getObjectById(objid)
+        obj[name] = value
+        this.fire({type:EVENT_TYPES.SET_PROPERTY,name:name,value:value})
     }
 
     onChange(cb) {
@@ -56,3 +69,6 @@ class ObjectSyncProtocol {
 }
 
 module.exports.ObjectSyncProtocol = ObjectSyncProtocol
+Object.keys(EVENT_TYPES).forEach(key => {
+    module.exports[key] = EVENT_TYPES[key]
+})
