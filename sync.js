@@ -1,5 +1,6 @@
 const EVENT_TYPES = {
     CREATE_OBJECT:'CREATE_OBJECT',
+    DELETE_OBJECT:'DELETE_OBJECT',
     CREATE_PROPERTY:'CREATE_PROPERTY',
     SET_PROPERTY:'SET_PROPERTY',
 }
@@ -25,6 +26,15 @@ class ObjectSyncProtocol {
         this.objs[obj._id] = obj
         this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id})
         return obj._id
+    }
+    deleteObject(objid) {
+        const obj = this.getObjectById(objid)
+        if(!obj) {
+            console.error("no such object exists with id",objid)
+            return
+        }
+        delete this.objs[obj._id]
+        this.fire({type:EVENT_TYPES.DELETE_OBJECT,id:obj._id})
     }
     getObjectById(objid) {
         return this.objs[objid]
@@ -76,6 +86,9 @@ class ObjectSyncProtocol {
         return null
     }
 
+    getPropertiesForObject(objid) {
+        return Object.keys(this.getObjectById(objid)).filter(key => key !== '_id')
+    }
     getPropertyValue(objid, key) {
         return this.getObjectById(objid)[key]
     }

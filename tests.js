@@ -223,84 +223,115 @@ test('undo',t => {
 
 
 /*
-* tree B follows changes to tree A. Add, set, delete some objects. Confirm tree B is still valid.
-
+ * tree B follows changes to tree A. Add, set, delete some objects. Confirm tree B is still valid.
  */
 
-// test('jsonview',t => {
-//     const jsonview = new JSONView()
-//     jsonview.listen(sync)
-//
-//     const R = sync.createObject()
-//     sync.createProperty(R,'id','R')
-//     sync.createProperty(R,'x',100)
-//     sync.setProperty(R,'x',200)
-//     const S = sync.createObject()
-//     sync.createProperty(S,'id','S')
-//     sync.createProperty(S,'x',300)
-//     sync.createProperty(R,'children',[sync.getId(S)])
-//
-//
-//
-//     t.deepEquals(
-//         jsonview.getJSONViewById('R'),
-//         {
-//             id:'R',
-//             x:100,
-//             children:[
-//                 {
-//                     id:'S',
-//                     x:300
-//                 }
-//             ]
-//         }
-//     )
-//
-//     const T = sync.createObject()
-//     sync.createProperty(T,'id','T')
-//     sync.createProperty(T,'x',400)
-//     sync.setProperty(R,'children',[sync.getId(S),sync.getId(T)])
-//
-//
-//
-//     t.deepEquals(
-//         jsonview.getJSONViewById('R'),
-//         {
-//             id:'R',
-//             x:100,
-//             children:[
-//                 {
-//                     id:'S',
-//                     x:300
-//                 },
-//                 {
-//                     id:'T',
-//                     x:400
-//                 }
-//             ]
-//         }
-//     )
-//
-//     sync.deleteObject(S)
-//     sync.setProperty(R,'children',[sync.getId(T)])
-//
-//
-//     t.deepEquals(
-//         jsonview.getJSONViewById('R'),
-//         {
-//             id:'R',
-//             x:100,
-//             children:[
-//                 {
-//                     id:'T',
-//                     x:400
-//                 }
-//             ]
-//         }
-//     )
-//
-//     t.end()
-// })
+test('jsonview',t => {
+    class JSONView {
+        constructor(graph) {
+            this.graph = graph
+            graph.onChange((e)=>{
+                console.log("graph changed",e)
+            })
+        }
+
+        getJSONViewById(id) {
+            console.log("getting the view for",id)
+            const root = this.graph.getObjectByProperty('id',id)
+            console.log("found the root",root)
+            return this.getJSONViewByRealId(root)
+        }
+        getJSONViewByRealId(id) {
+            const props = this.graph.getPropertiesForObject(id)
+            console.log("got the properties",props)
+            const rootObj = {}
+            props.forEach(name => {
+                rootObj[name] = this.graph.getPropertyValue(id,name)
+                if(name === 'children') {
+                    rootObj.children = rootObj[name].map((objid)=>{
+                        console.log("expanding child",objid)
+                        return this.getJSONViewByRealId(objid)
+                    })
+                }
+            })
+
+            return rootObj
+        }
+    }
+
+    const sync = new ObjectSyncProtocol()
+    const jsonview = new JSONView(sync)
+
+    const O1 = sync.createObject()
+    sync.createProperty(O1,'id','O1')
+    sync.createProperty(O1,'x',100)
+    sync.setProperty(O1,'x',200)
+
+    const root = sync.createObject()
+    sync.createProperty(root,'id','ROOT')
+    sync.createProperty(root,'x',300)
+    sync.createProperty(root,'children',[O1])
+
+
+
+    t.deepEquals(
+        jsonview.getJSONViewById('ROOT'),
+        {
+            id:'ROOT',
+            x:300,
+            children:[
+                {
+                    id:'O1',
+                    x:200
+                }
+            ]
+        }
+    )
+
+    const O2 = sync.createObject()
+    sync.createProperty(O2,'id','O2')
+    sync.createProperty(O2,'x',400)
+    sync.setProperty(root,'children',[O1,O2])
+
+
+
+    t.deepEquals(
+        jsonview.getJSONViewById('ROOT'),
+        {
+            id:'ROOT',
+            x:300,
+            children:[
+                {
+                    id:'O1',
+                    x:200
+                },
+                {
+                    id:'O2',
+                    x:400
+                }
+            ]
+        }
+    )
+
+    sync.deleteObject(O1)
+    sync.setProperty(root,'children',[O2])
+
+    t.deepEquals(
+        jsonview.getJSONViewById('ROOT'),
+        {
+            id:'ROOT',
+            x:300,
+            children:[
+                {
+                    id:'O2',
+                    x:400
+                }
+            ]
+        }
+    )
+
+    t.end()
+})
 
 
 /*
