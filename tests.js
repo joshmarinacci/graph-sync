@@ -71,7 +71,7 @@ test('sync', t => {
 
     function sync(X,Y) {
         X.onChange(e => {
-            console.log("client changed",e)
+            // console.log("client changed",e)
             if(e.type === CREATE_OBJECT) Y.createObject(e.id)
             if(e.type === CREATE_PROPERTY) Y.createProperty(e.object, e.name, e.value)
             if(e.type === SET_PROPERTY) Y.setProperty(e.object, e.name, e.value)
@@ -118,7 +118,7 @@ test('undo',t => {
             this.history = []
             this.current = 0
             graph.onChange((e)=>{
-                console.log('graph changed',e)
+                // console.log('graph changed',e)
                 this.current++
                 if(e.type === CREATE_OBJECT) {
                     this.history.push({
@@ -152,9 +152,9 @@ test('undo',t => {
         undo() {
             this.current--
             const last = this.history[this.current]
-            console.log("last is",last)
+            // console.log("last is",last)
             if(last.type === SET_PROPERTY) {
-                console.log("undoing")
+                // console.log("undoing")
                 this.graph.setProperty(last.object,last.name, last.oldValue)
                 return
             }
@@ -162,9 +162,9 @@ test('undo',t => {
         }
         redo() {
             const last = this.history[this.current]
-            console.log("last is",last)
+            // console.log("last is",last)
             if(last.type === SET_PROPERTY) {
-                console.log("redoing")
+                // console.log("redoing")
                 this.graph.setProperty(last.object,last.name,last.oldValue)
                 return
             }
@@ -231,25 +231,25 @@ test('jsonview',t => {
         constructor(graph) {
             this.graph = graph
             graph.onChange((e)=>{
-                console.log("graph changed",e)
+                // console.log("graph changed",e)
             })
         }
 
         getJSONViewById(id) {
-            console.log("getting the view for",id)
+            // console.log("getting the view for",id)
             const root = this.graph.getObjectByProperty('id',id)
-            console.log("found the root",root)
+            // console.log("found the root",root)
             return this.getJSONViewByRealId(root)
         }
         getJSONViewByRealId(id) {
             const props = this.graph.getPropertiesForObject(id)
-            console.log("got the properties",props)
+            // console.log("got the properties",props)
             const rootObj = {}
             props.forEach(name => {
                 rootObj[name] = this.graph.getPropertyValue(id,name)
                 if(name === 'children') {
                     rootObj.children = rootObj[name].map((objid)=>{
-                        console.log("expanding child",objid)
+                        // console.log("expanding child",objid)
                         return this.getJSONViewByRealId(objid)
                     })
                 }
@@ -335,35 +335,85 @@ test('jsonview',t => {
 
 
 /*
-* coalesce a set of changes into a single ‘transaction’ which can then be submitted as a batch
+* coalesce a set of changes into a single ‘transaction’
+* which can then be submitted as a batch
  */
 
-// test('coalesce',t => {
-//     const sync = Sync.createSync()
-//
-//     const history = new History()
-//     history.listen(sync)
-//
-//     const throttle = new Throttle()
-//     throttle.listen(sync)
-//
-//     const A = throttle.createObject()
-//     throttle.createProperty(A,'x',100)
-//     throttle.pause()
-//     throttle.setProperty(A,'x',101)
-//     throttle.setProperty(A,'x',102)
-//     throttle.setProperty(A,'x',103)
-//     throttle.unpause()
-//
-//     t.deepEquals(throttle.dump(),
-//         [
-//             {type:CREATE_OBJECT, id:sync.getId(A)},
-//             {type:CREATE_PROPERTY,name:'x',value:100},
-//             {type:SET_PROPERTY,name:'x',value:103}
-//         ]
-//     )
-//     t.end()
-// })
+test('coalesce',t => {
+    class Throttle {
+        constructor(graph) {
+            this.graph = graph
+            this.paused = false
+            this.buffer = []
+        }
+        createProperty(objid, propname, value) {
+            if(!this.paused) {
+                return this.graph.createProperty(objid,propname,value)
+            }
+        }
+        createObject() {
+            if(!this.paused) {
+                return this.graph.createObject()
+            }
+        }
+        setProperty(objid, propname, propvalue) {
+            if(!this.paused) {
+                return this.graph.setProperty(objid,propname,propvalue)
+            }
+            this.buffer.push({type:SET_PROPERTY,object:objid, name:propname, value:propvalue})
+        }
+
+        pause() {
+            this.paused = true
+        }
+
+        unpause() {
+            // console.log("unpausing. buffer is", this.buffer)
+            const b = {}
+            this.buffer.forEach(e => {
+                if(e.type === SET_PROPERTY) {
+                    if(!b[e.object]) b[e.object] = {}
+                    b[e.object][e.name] = e.value
+                }
+            })
+            // console.log("condensed",b)
+            Object.keys(b).forEach((okey) =>{
+                // console.log("obj",okey)
+                Object.keys(b[okey]).forEach(name=>{
+                    // console.log("name",name,b[okey][name])
+                    this.graph.setProperty(okey,name,b[okey][name])
+                })
+            })
+            this.paused = false
+            this.buffer = []
+        }
+    }
+
+    const sync = new ObjectSyncProtocol()
+    const history = []
+    sync.onChange((e)=>{
+        history.push(e)
+    })
+
+    const throttle = new Throttle(sync)
+
+    const A = throttle.createObject()
+    throttle.createProperty(A,'x',100)
+    throttle.pause()
+    throttle.setProperty(A,'x',101)
+    throttle.setProperty(A,'x',102)
+    throttle.setProperty(A,'x',103)
+    throttle.unpause()
+
+    t.deepEquals(history,
+        [
+            {type:CREATE_OBJECT, id:A},
+            {type:CREATE_PROPERTY,object:A, name:'x',value:100},
+            {type:SET_PROPERTY,object:A, name:'x',value:103}
+        ]
+    )
+    t.end()
+})
 
 
 

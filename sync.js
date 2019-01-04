@@ -7,7 +7,7 @@ const EVENT_TYPES = {
 let current_id = 0;
 function makeGUID() {
     current_id++
-    return current_id
+    return current_id+''
 }
 
 class ObjectSyncProtocol {
