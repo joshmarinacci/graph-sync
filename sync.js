@@ -92,6 +92,9 @@ class ObjectSyncProtocol {
     getPropertyValue(objid, key) {
         return this.getObjectById(objid)[key]
     }
+    hasPropertyValue(objid,key) {
+        return this.getObjectById(objid).hasOwnProperty(key)
+    }
 
     dumpGraph() {
         const graph = {}

@@ -423,52 +423,87 @@ test('coalesce',t => {
  * Confirm that the final tree snapshot is correct.
  */
 
-// test('disconnected',t => {
-//     const Server = Sync.createSync()
-//     const A = Sync.createSync()
-//     const B = Sync.createSync()
-//
-//     Server.listen(A)
-//     Server.listen(B)
-//     A.listen(Server)
-//     B.listen(Server)
-//
-//     const R = A.createObject()
-//     A.createProperty(R,'x',1)
-//
-//     // all sides have the same value
-//     t.equal(A.getPropertyValue(A.getObjectById(A.getId(R)),'x'),1)
-//     t.equal(Server.getPropertyValue(Server.getObjectById(A.getId(R)),'x'),1)
-//     t.equal(B.getPropertyValue(B.getObjectById(A.getId(R)),'x'),1)
-//
-//     //disconnect A
-//     A.disconnect()
-//     A.createProperty(R,'y',20)
-//     A.setProperty(R,'x',2)
-//
-//     // sides have different values
-//     t.equal(A.getPropertyValue(A.getObjectById(A.getId(R)),'x'),2)
-//     t.equal(Server.getPropertyValue(Server.getObjectById(A.getId(R)),'x'),1)
-//     t.equal(B.getPropertyValue(B.getObjectById(A.getId(R)),'x'),1)
-//
-//     t.equal(A.getPropertyValue(A.getObjectById(A.getId(R)),'y'),20)
-//     t.equal(Server.hasPropertyValue(Server.getObjectById(A.getId(R)),'y'),false)
-//     t.equal(B.hasPropertyValue(Server.getObjectById(A.getId(R)),'y'),false)
-//
-//     //dump the local storage
-//
-//     //
-//     A.connect()
-//
-//     // all sides have the same value
-//     t.equal(A.getPropertyValue(A.getObjectById(A.getId(R)),'x'),2)
-//     t.equal(Server.getPropertyValue(Server.getObjectById(A.getId(R)),'x'),2)
-//     t.equal(B.getPropertyValue(B.getObjectById(A.getId(R)),'x'),2)
-//     // all sides have the same value
-//     t.equal(A.getPropertyValue(A.getObjectById(A.getId(R)),'y'),20)
-//     t.equal(Server.getPropertyValue(Server.getObjectById(A.getId(R)),'y'),20)
-//     t.equal(B.getPropertyValue(B.getObjectById(A.getId(R)),'y'),20)
-// })
+test('disconnected',t => {
+    function follow(X,Y) {
+        X.onChange(e => {
+            // console.log("client changed",e)
+            if(e.type === CREATE_OBJECT) Y.createObject(e.id)
+            if(e.type === CREATE_PROPERTY) Y.createProperty(e.object, e.name, e.value)
+            if(e.type === SET_PROPERTY) Y.setProperty(e.object, e.name, e.value)
+        })
+    }
+
+    class DisconnectableSync extends ObjectSyncProtocol {
+        constructor(graph) {
+            super()
+            this.connected = true
+            this.buffer = []
+        }
+        disconnect() {
+            this.connected = false
+        }
+        connect() {
+            this.connected = true
+            this.buffer.forEach(e=>this.fire(e))
+            this.buffer = []
+        }
+
+        fire(event) {
+            if(this.connected) {
+                super.fire(event);
+            } else {
+                this.buffer.push(event)
+            }
+        }
+    }
+
+
+    const Server = new ObjectSyncProtocol()
+    const A = new DisconnectableSync()
+    const B = new ObjectSyncProtocol()
+    follow(A,Server)
+    follow(B,Server)
+    follow(Server,A)
+    follow(Server,B)
+
+
+    const R = A.createObject()
+    A.createProperty(R,'x',1)
+
+    // all sides have the same value
+    t.equal(A.getPropertyValue(R,'x'),1)
+    t.equal(Server.getPropertyValue(R,'x'),1)
+    t.equal(B.getPropertyValue(R,'x'),1)
+
+    //disconnect A
+    A.disconnect()
+    A.createProperty(R,'y',20)
+    A.setProperty(R,'x',2)
+
+    // sides have different values
+    t.equal(A.getPropertyValue(R,'x'),2)
+    t.equal(Server.getPropertyValue(R,'x'),1)
+    t.equal(B.getPropertyValue(R,'x'),1)
+
+    t.equal(A.getPropertyValue(R,'y'),20)
+    t.equal(Server.hasPropertyValue(R,'y'),false)
+    t.equal(B.hasPropertyValue(R,'y'),false)
+
+    //dump the local storage
+
+
+    A.connect()
+
+    // all sides have the same value
+    t.equal(A.getPropertyValue(R,'x'),2)
+    t.equal(Server.getPropertyValue(R,'x'),2)
+    t.equal(B.getPropertyValue(R,'x'),2)
+    // all sides have the same value
+    t.equal(A.getPropertyValue(R,'y'),20)
+    t.equal(Server.getPropertyValue(R,'y'),20)
+    t.equal(B.getPropertyValue(R,'y'),20)
+    t.end()
+})
 
 // set property on a deleted object. Confirm that the final tree snapshot is correct.
 // test('invalid property setting',t => {
