@@ -2,6 +2,14 @@ const test = require('tape')
 const Sync = require('./sync.js')
 const {ObjectSyncProtocol, SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY, DELETE_PROPERTY, DELETE_OBJECT} = Sync
 
+function performEvent(e,graph) {
+    // console.log("client changed",e)
+    if(e.type === CREATE_OBJECT) graph.createObject(e.id)
+    if(e.type === CREATE_PROPERTY) graph.createProperty(e.object, e.name, e.value)
+    if(e.type === SET_PROPERTY) graph.setProperty(e.object, e.name, e.value)
+    if(e.type === DELETE_PROPERTY) graph.deleteProperty(e.object, e.name)
+    if(e.type === DELETE_OBJECT) graph.deleteObject(e.id)
+}
 /*
  create object A as child of root with property x = 100
   */
@@ -536,4 +544,77 @@ test('invalid property setting',t => {
     sync.setProperty(R,'x',300)
     t.deepEquals(sync.dumpGraph(),{})
     t.end()
+})
+
+// create tree, sync new tree from the original by replaying history
+test('tree clone',t=>{
+    const history = []
+    let historyCount = 0
+    const sync = new ObjectSyncProtocol()
+    sync.onChange((e)=> {
+        historyCount++
+        history.push({event:e,count:historyCount})
+    })
+    const R = sync.createObject()
+    sync.createProperty(R,'id','R')
+    sync.createProperty(R,'x',100)
+    sync.setProperty(R,'x',200)
+
+    t.deepEquals(sync.dumpGraph(),{ R: { id:'R', x:200 }})
+
+    function updateFrom(from,to) {
+        history.forEach((e)=> performEvent(e.event,to))
+    }
+    const sync2 = new ObjectSyncProtocol()
+    updateFrom(sync,sync2)
+
+    t.deepEquals(sync2.dumpGraph(),{ R: { id:'R', x:200 }})
+
+    t.end()
+})
+
+
+// A creates obj & prop
+// B connects to A and gets history
+// A & B disconnect
+// A adds object and sets prop of first obj
+// B adds object and sets prop on first obj
+// A & B reconnect and sync
+// verify that both A & B are the same
+test('tree disconnected two way sync',t=>{
+    const A = new ObjectSyncProtocol()
+    const R = A.createObject()
+    A.setProperty(R,'x',100)
+    A.createProperty(R,'children',[])
+
+    const B = new ObjectSyncProtocol()
+    //sync A to B
+    //disconnect A & B
+
+    //A updates property on R
+    A.setProperty(R,'x',660)
+    //A adds object S
+    const S = A.createObject()
+    A.createProperty(S,'x',44)
+    A.createProperty(S,'y', 449)
+    //add S to children of R
+    A.createProperty(R,'children',[S])
+
+    //B updates property on R
+    B.setProperty(R,'x',760)
+    //B adds object S
+    const T = B.createObject()
+    B.createProperty(T,'x',55)
+    //add T to children of R
+    A.createProperty(R,'children',[T])
+
+    // reconnect A & B and sync
+    //verify that both A & B are the same
+
+    t.deepEquals(A.dumpGraph(),{
+        R: { id:'R', x:660, children:[S,T]},
+        S: { id:'S', x:44, y:449},
+        T: { id:'T', x:55}
+    })
+
 })
