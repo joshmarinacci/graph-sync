@@ -1,6 +1,6 @@
 const test = require('tape')
 const Sync = require('./sync.js')
-const {ObjectSyncProtocol, SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY} = Sync
+const {ObjectSyncProtocol, SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY, DELETE_PROPERTY, DELETE_OBJECT} = Sync
 
 /*
  create object A as child of root with property x = 100
@@ -75,6 +75,8 @@ test('sync', t => {
             if(e.type === CREATE_OBJECT) Y.createObject(e.id)
             if(e.type === CREATE_PROPERTY) Y.createProperty(e.object, e.name, e.value)
             if(e.type === SET_PROPERTY) Y.setProperty(e.object, e.name, e.value)
+            if(e.type === DELETE_PROPERTY) Y.deleteProperty(e.object, e.name)
+            if(e.type === DELETE_OBJECT) Y.deleteObject(e.id)
         })
     }
     sync(A,B)
@@ -97,6 +99,16 @@ test('sync', t => {
 
     const aR2 = A.getObjectByProperty('id','R')
     t.equal(A.getPropertyValue(aR2,'x'),200)
+
+
+    A.deleteProperty(aR2,'x')
+    t.equal(A.hasPropertyValue(aR2,'x'),false)
+    t.equal(B.hasPropertyValue(aR2,'x'),false)
+
+    A.deleteObject(aR2)
+    t.deepEqual(A.dumpGraph(),{})
+    t.deepEqual(B.dumpGraph(),{})
+
     t.end()
 })
 

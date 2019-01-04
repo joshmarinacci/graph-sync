@@ -3,6 +3,7 @@ const EVENT_TYPES = {
     DELETE_OBJECT:'DELETE_OBJECT',
     CREATE_PROPERTY:'CREATE_PROPERTY',
     SET_PROPERTY:'SET_PROPERTY',
+    DELETE_PROPERTY:'DELETE_PROPERTY',
 }
 let current_id = 0;
 function makeGUID() {
@@ -67,6 +68,17 @@ class ObjectSyncProtocol {
             object:objid,
             name:name,
             value:value
+        })
+    }
+    deleteProperty(objid,name) {
+        const obj = this.getObjectById(objid)
+        if(!obj) return console.error("cannot delete property on object that does not exist")
+        if(!obj.hasOwnProperty(name)) return console.error(`object doesn't have the property ${name}`)
+        delete obj[name]
+        this.fire({
+            type:EVENT_TYPES.DELETE_PROPERTY,
+            object:objid,
+            name:name,
         })
     }
 
