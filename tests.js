@@ -498,6 +498,7 @@ test('disconnected',t => {
     t.equal(A.getPropertyValue(R,'x'),2)
     t.equal(Server.getPropertyValue(R,'x'),2)
     t.equal(B.getPropertyValue(R,'x'),2)
+
     // all sides have the same value
     t.equal(A.getPropertyValue(R,'y'),20)
     t.equal(Server.getPropertyValue(R,'y'),20)
@@ -506,20 +507,21 @@ test('disconnected',t => {
 })
 
 // set property on a deleted object. Confirm that the final tree snapshot is correct.
-// test('invalid property setting',t => {
-//     const sync = new Sync()
-//
-//     const R = sync.createObject()
-//     sync.createProperty(R,'id','R')
-//     sync.createProperty(R,'x',100)
-//     sync.setProperty(R,'x',200)
-//     t.deepEquals(sync.dump(),{
-//         R: {
-//             id:'R',
-//             x:200
-//         }
-//     })
-//     sync.deleteObject(R)
-//     sync.setProperty(R,'x',300)
-//     t.deepEquals(sync.dump(),{})
-// })
+test('invalid property setting',t => {
+    const sync = new ObjectSyncProtocol()
+
+    const R = sync.createObject()
+    sync.createProperty(R,'id','R')
+    sync.createProperty(R,'x',100)
+    sync.setProperty(R,'x',200)
+    t.deepEquals(sync.dumpGraph(),{
+        R: {
+            id:'R',
+            x:200
+        }
+    })
+    sync.deleteObject(R)
+    sync.setProperty(R,'x',300)
+    t.deepEquals(sync.dumpGraph(),{})
+    t.end()
+})

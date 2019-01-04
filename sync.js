@@ -56,6 +56,7 @@ class ObjectSyncProtocol {
     }
     setProperty(objid,name,value) {
         const obj = this.getObjectById(objid)
+        if(!obj) return console.error("cannot set property on object that does not exist")
         if(obj[name] === value) {
             console.log("property already has this value, don't fire or change")
             return
