@@ -4,6 +4,9 @@ const EVENT_TYPES = {
     CREATE_PROPERTY:'CREATE_PROPERTY',
     SET_PROPERTY:'SET_PROPERTY',
     DELETE_PROPERTY:'DELETE_PROPERTY',
+
+    CREATE_ARRAY:'CREATE_ARRAY',
+    INSERT_ELEMENT:'INSERT_ELEMENT',
 }
 let current_id = 0;
 function makeGUID() {
@@ -18,10 +21,11 @@ class ObjectSyncProtocol {
     }
     createObject(objid) {
         const obj = {
-            _id:objid?objid:makeGUID()
+            _id:objid?objid:makeGUID(),
+            _type:'object',
         }
         if(this.objs[obj._id]) {
-            console.log("already exists. don't fire or change")
+            //console.log(`object ${obj._id} already exists. don't fire or change`)
             return obj._id
         }
         this.objs[obj._id] = obj
@@ -40,11 +44,99 @@ class ObjectSyncProtocol {
     getObjectById(objid) {
         return this.objs[objid]
     }
+    
+    
+    
+    createArray(arrid) {
+        const arr = {
+            _id:arrid?arrid:makeGUID(),
+            _type:'array',
+            _elements:[]
+        }
+        if(this.objs[arr._id]) {
+            console.log("array already exists. don't fire or change")
+            return arr._id
+        }
+        this.objs[arr._id] = arr
+        this.fire({type:EVENT_TYPES.CREATE_ARRAY,id:arr._id})
+        return arr._id
+    }
+
+    insertElement(arrid, index, elementid) {
+        // console.log('inserting at', index, 'value', elementid)
+        const arr = this.getObjectById(arrid)
+        if (!arr) return console.error(`Cannot insert element into ${arrid} that does not exist`);
+
+        // const current = arr._elements[index]
+        let prev = -1
+        if (index > 0) {
+            prev = arr._elements[index - 1]._id
+        }
+        this.insertElementDirect(arrid, prev, elementid,null, Date.now())
+    }
+    insertElementDirect(arrid, prev, value, entryid, timestamp) {
+        const arr = this.getObjectById(arrid)
+        //check if already in there. id p entryid and prev is the same
+        if(arr._elements.some(e=>e._id === entryid && e._prev === prev)) {
+            // console.log("already processed this insertion. don't fire or change")
+            return entryid
+        }
+
+        //console.log("inserting",value,'after',prev,'into',arr,'with id',entryid)
+
+        const elem = {
+            _id:entryid?entryid:makeGUID(),
+            _value:value,
+            _prev:prev,
+            _timestamp:timestamp,
+        }
+        //calculate the index of the prev
+        const index = arr._elements.findIndex(e => e._id === prev)
+
+        const curr = arr._elements[index+1]
+        // console.log("the prev is",arr._elements[index])
+        // console.log("the curr is", curr)
+        // console.log("the new is",elem)
+        //two forms of insert
+        if(curr && curr._prev === prev) {
+            console.log(this.id, "must decide", elem._id, elem._timestamp, curr._id, curr._timestamp)
+            if(elem._timestamp > curr._timestamp) {
+                console.log('new elem first')
+                arr._elements.splice(index+1,0,elem)
+            } else if(elem._timestamp < curr._timestamp) {
+                console.log("new elem second")
+                arr._elements.splice(index+2,0,elem)
+            } else {
+                console.log("same time. go with earliest id")
+                if(elem._id > curr._id) {
+                    console.log('first')
+                    arr._elements.splice(index+1,0,elem)
+                } else {
+                    console.log("second")
+                    arr._elements.splice(index+2,0,elem)
+                }
+            }
+
+        } else {
+            console.log('normal')
+            arr._elements.splice(index+1,0,elem)
+        }
+        // console.log(this.id, "final array is",arr)
+        this.fire({
+            type:EVENT_TYPES.INSERT_ELEMENT,
+            object:arrid,
+            after:prev,
+            value:value,
+            entry:elem._id,
+            timestamp:Date.now(),
+        })
+    }
+
     createProperty(objid, name, value) {
         const obj = this.getObjectById(objid)
-        if(!obj) console.error(`Cannot set property ${name} on object ${objid} that does not exist`)
+        if(!obj) return console.error(`Cannot set property ${name} on object ${objid} that does not exist`)
         if(obj[name]) {
-            console.log("property already exists. don't fire or change")
+            // console.log("property already exists. don't fire or change")
             return
         }
         obj[name] = value
@@ -59,7 +151,7 @@ class ObjectSyncProtocol {
         const obj = this.getObjectById(objid)
         if(!obj) return console.error("cannot set property on object that does not exist")
         if(obj[name] === value) {
-            console.log("property already has this value, don't fire or change")
+            // console.log("property already has this value, don't fire or change")
             return
         }
         obj[name] = value
@@ -100,7 +192,9 @@ class ObjectSyncProtocol {
     }
 
     getPropertiesForObject(objid) {
-        return Object.keys(this.getObjectById(objid)).filter(key => key !== '_id')
+        return Object.keys(this.getObjectById(objid))
+            .filter(key => key !== '_id')
+            .filter(key => key !== '_type')
     }
     getPropertyValue(objid, key) {
         return this.getObjectById(objid)[key]
@@ -116,12 +210,23 @@ class ObjectSyncProtocol {
             let id = obj._id
             if(obj.id) id = obj.id
             graph[id] = {}
+
+            if(obj._type === 'array'){
+                graph[id] = []
+                obj._elements.forEach((el=>{
+                    // console.log("looking at element",el)
+                    graph[id].push(el._value)
+                }))
+                return;
+            }
+
             Object.keys(obj).forEach(key => {
                 if(key === '_id' && obj.id) {
                     graph[id]['id'] = obj.id
-                } else {
-                    graph[id][key] = obj[key]
+                    return
                 }
+                if(key === '_type') return
+                graph[id][key] = obj[key]
             })
         })
         return graph

@@ -1,14 +1,19 @@
 const test = require('tape')
 const Sync = require('./sync.js')
-const {ObjectSyncProtocol, SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY, DELETE_PROPERTY, DELETE_OBJECT} = Sync
+const {ObjectSyncProtocol,
+    SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY, DELETE_PROPERTY, DELETE_OBJECT,
+    CREATE_ARRAY, INSERT_ELEMENT,
+} = Sync
 
 function performEvent(e,graph) {
-    // console.log("client changed",e)
+    // console.log("performing",e)
     if(e.type === CREATE_OBJECT) graph.createObject(e.id)
     if(e.type === CREATE_PROPERTY) graph.createProperty(e.object, e.name, e.value)
     if(e.type === SET_PROPERTY) graph.setProperty(e.object, e.name, e.value)
     if(e.type === DELETE_PROPERTY) graph.deleteProperty(e.object, e.name)
     if(e.type === DELETE_OBJECT) graph.deleteObject(e.id)
+    if(e.type === CREATE_ARRAY) return graph.createArray(e.id)
+    if(e.type === INSERT_ELEMENT) return graph.insertElementDirect(e.object,e.after,e.value,e.entry,e.timestamp)
 }
 /*
  create object A as child of root with property x = 100
@@ -574,6 +579,119 @@ test('tree clone',t=>{
 })
 
 
+/*
+    A creates array with two objects in it, R & S
+    B connects to A and gets full history
+    A & B disconnect
+    A adds object and inserts into the array after the first element, T
+    B adds object and inserts into the array after the first element, U
+    A & B connect and sync
+    Both show array of R U T S.
+    conflict is resolved by B having a slightly later timestamp than A
+ */
+test('array conflict resolution',t=>{
+    const Ahistory = []
+    const Bhistory = []
+
+    const A = new ObjectSyncProtocol()
+    A.id = 'A'
+    A.onChange((e)=> {
+        Ahistory.push({event:e})
+    })
+    const R = A.createObject()
+    A.setProperty(R,'id','R')
+    const S = A.createObject()
+    A.setProperty(S,'id','S')
+    const arr = A.createArray('arr')
+    A.insertElement(arr,0,R)
+    A.insertElement(arr,1,S)
+
+    t.deepEqual(A.dumpGraph(),{
+        R: {id:'R'},
+        S: {id:'S'},
+        arr:[R,S]
+    })
+
+    const B = new ObjectSyncProtocol()
+    B.id = 'B'
+    B.onChange((e)=> {
+        Bhistory.push({event:e})
+    })
+    function updateFromA(from,to) {
+        Ahistory.forEach((e)=> performEvent(e.event,to))
+    }
+    updateFromA(A,B)
+
+
+    t.deepEqual(B.dumpGraph(),{
+        R: {id:'R'},
+        S: {id:'S'},
+        arr:[R,S]
+    })
+
+    function clearHistory(hist) {
+        hist.splice(0,hist.length)
+    }
+    clearHistory(Ahistory)
+    clearHistory(Bhistory)
+
+    console.log("========= offline")
+
+    //disconnect A and B
+    const T = A.createObject()
+    A.setProperty(T,'id','T')
+    A.insertElement(arr,1,T)
+
+    const U = B.createObject()
+    B.setProperty(U,'id','U')
+    B.insertElement(arr,1,U)
+
+    function updateFromB(from,to) {
+        Bhistory.forEach((e)=> performEvent(e.event,to))
+    }
+    updateFromB(B,A)
+
+
+    // clearHistory(Bhistory)
+    updateFromA(A,B)
+    // clearHistory(Ahistory)
+
+
+    t.deepEqual(A.dumpGraph(), B.dumpGraph())
+    /*{
+        R: {id:'R'},
+        S: {id:'S'},
+        T: {id:'T'},
+        U: {id:'U'},
+        arr:[R,U,T,S]
+    })
+    t.deepEqual(B.dumpGraph(),{
+        R: {id:'R'},
+        S: {id:'S'},
+        T: {id:'T'},
+        U: {id:'U'},
+        arr:[R,U,T,S]
+    })*/
+
+    /*
+
+    //disconnect A & B
+
+    A.removeElement(arr,0)
+    const V = B.createObject()
+    B.insertElement(arr,1,V)
+
+    //reconnect A & B
+    //sync A & B
+
+    t.deepEqual(A.dumpGraph(),{arr:[V,U,T,S]})
+    t.deepEqual(B.dumpGraph(),{arr:[V,U,T,S]})
+    */
+
+    t.end()
+})
+
+/*
 // A creates obj & prop
 // B connects to A and gets history
 // A & B disconnect
@@ -617,4 +735,7 @@ test('tree disconnected two way sync',t=>{
         T: { id:'T', x:55}
     })
 
+    t.end()
+
 })
+*/
