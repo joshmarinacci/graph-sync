@@ -74,6 +74,7 @@ class ObjectSyncProtocol {
         }
         this.insertElementDirect(arrid, prev, elementid,null, Date.now())
     }
+
     insertElementDirect(arrid, prev, value, entryid, timestamp) {
         const arr = this.getObjectById(arrid)
         //check if already in there. id p entryid and prev is the same
@@ -89,6 +90,7 @@ class ObjectSyncProtocol {
             _value:value,
             _prev:prev,
             _timestamp:timestamp,
+            _tombstone:false
         }
         //calculate the index of the prev
         const index = arr._elements.findIndex(e => e._id === prev)
@@ -131,6 +133,23 @@ class ObjectSyncProtocol {
             timestamp:Date.now(),
         })
     }
+
+    removeElement(arrid, index) {
+        const arr = this.getObjectById(arrid)
+        if (!arr) return console.error(`Cannot insert element into ${arrid} that does not exist`);
+        const elem = arr._elements[index]
+        elem._tombstone = true
+    }
+    getArrayLength(arrid) {
+        const arr = this.getObjectById(arrid)
+        if (!arr) return console.error(`Cannot insert element into ${arrid} that does not exist`);
+        let len = 0
+        arr._elements.forEach(el => {
+            if(el._tombstone === false) len++
+        })
+        return len
+    }
+
 
     createProperty(objid, name, value) {
         const obj = this.getObjectById(objid)
@@ -215,7 +234,7 @@ class ObjectSyncProtocol {
                 graph[id] = []
                 obj._elements.forEach((el=>{
                     // console.log("looking at element",el)
-                    graph[id].push(el._value)
+                    if(el._tombstone === false) graph[id].push(el._value)
                 }))
                 return;
             }

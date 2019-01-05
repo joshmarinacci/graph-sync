@@ -650,43 +650,34 @@ test('array conflict resolution',t=>{
         Bhistory.forEach((e)=> performEvent(e.event,to))
     }
     updateFromB(B,A)
-
-
-    // clearHistory(Bhistory)
+    clearHistory(Bhistory)
     updateFromA(A,B)
-    // clearHistory(Ahistory)
+    clearHistory(Ahistory)
 
 
     t.deepEqual(A.dumpGraph(), B.dumpGraph())
-    /*{
-        R: {id:'R'},
-        S: {id:'S'},
-        T: {id:'T'},
-        U: {id:'U'},
-        arr:[R,U,T,S]
-    })
-    t.deepEqual(B.dumpGraph(),{
-        R: {id:'R'},
-        S: {id:'S'},
-        T: {id:'T'},
-        U: {id:'U'},
-        arr:[R,U,T,S]
-    })*/
+    console.log("i=====")
+    console.log(A.dumpGraph())
 
-    /*
+    //remove the second element of the array, U
+    t.equal(A.getArrayLength(arr),4)
+    A.removeElement(arr,1)
+    t.equal(A.getArrayLength(arr),3)
+    console.log(A.dumpGraph())
 
-    //disconnect A & B
-
-    A.removeElement(arr,0)
+    //insert V at start of the array
     const V = B.createObject()
-    B.insertElement(arr,1,V)
+    B.setProperty(V,'id','V')
+    B.insertElement(arr,1, V)
+    updateFromB(B,A)
 
-    //reconnect A & B
-    //sync A & B
-
-    t.deepEqual(A.dumpGraph(),{arr:[V,U,T,S]})
-    t.deepEqual(B.dumpGraph(),{arr:[V,U,T,S]})
-    */
+    t.deepEqual(A.dumpGraph(),{
+        R: {id:'R'},
+        S: {id:'S'},
+        T: {id:'T'},
+        U: {id:'U'},
+        V: {id:'V'},
+        arr:[R,V,T,S]})
 
     t.end()
 })
