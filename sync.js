@@ -7,6 +7,8 @@ const EVENT_TYPES = {
 
     CREATE_ARRAY:'CREATE_ARRAY',
     INSERT_ELEMENT:'INSERT_ELEMENT',
+    DELETE_ELEMENT:'DELETE_ELEMENT',
+    DELETE_ARRAY:'DELETE_ARRAY',
 }
 let current_id = 0;
 function makeGUID() {
@@ -139,6 +141,12 @@ class ObjectSyncProtocol {
         if (!arr) return console.error(`Cannot insert element into ${arrid} that does not exist`);
         const elem = arr._elements[index]
         elem._tombstone = true
+        this.fire({
+            type:EVENT_TYPES.DELETE_ELEMENT,
+            object:arrid,
+            entry:elem._id,
+            timestamp: Date.now()
+        })
     }
     getArrayLength(arrid) {
         const arr = this.getObjectById(arrid)
