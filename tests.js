@@ -1,6 +1,6 @@
 const test = require('tape')
 const Sync = require('./sync.js')
-const {ObjectSyncProtocol,
+const {ObjectSyncProtocol, HistoryView,
     SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY, DELETE_PROPERTY, DELETE_OBJECT,
     CREATE_ARRAY, INSERT_ELEMENT,
 } = Sync
@@ -40,6 +40,7 @@ test('basic',t => {
     t.end()
 })
 
+
 /*
  * create object A with property x = 100
  * set x to 200
@@ -47,21 +48,13 @@ test('basic',t => {
  */
 test('history', t => {
     const sync = new ObjectSyncProtocol()
-    const history = []
-    sync.onChange((e)=>{
-        const obj = { type:e.type}
-        if(e.type === CREATE_PROPERTY || e.type === SET_PROPERTY) {
-            obj.name = e.name
-            obj.value = e.value
-        }
-        history.push(obj)
-    })
+    const history = new HistoryView(sync)
     const A = sync.createObject()
     sync.createProperty(A,'id','A')
     sync.createProperty(A,'x',100)
     sync.setProperty(A,'x',200)
 
-    t.deepEquals(history,[
+    t.deepEquals(history.dump(),[
         { type:CREATE_OBJECT},
         { type:CREATE_PROPERTY,name:'id',value:'A'},
         { type:CREATE_PROPERTY,name:'x',value:100},

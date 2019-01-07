@@ -260,7 +260,24 @@ class ObjectSyncProtocol {
     }
 }
 
+class HistoryView {
+    constructor(graph) {
+        this.history = []
+        graph.onChange((e)=>{
+            const obj = { type:e.type}
+            if(e.type === EVENT_TYPES.CREATE_PROPERTY || e.type === EVENT_TYPES.SET_PROPERTY) {
+                obj.name = e.name
+                obj.value = e.value
+            }
+            this.history.push(obj)
+        })
+    }
+    dump() {
+        return this.history
+    }
+}
 module.exports.ObjectSyncProtocol = ObjectSyncProtocol
+module.exports.HistoryView = HistoryView
 Object.keys(EVENT_TYPES).forEach(key => {
     module.exports[key] = EVENT_TYPES[key]
 })
