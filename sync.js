@@ -10,7 +10,7 @@ const EVENT_TYPES = {
     DELETE_ELEMENT:'DELETE_ELEMENT',
     DELETE_ARRAY:'DELETE_ARRAY',
 }
-let current_id = 0;
+let current_id = Math.floor(Math.random()*100000000);
 function makeGUID() {
     current_id++
     return current_id+''
@@ -46,9 +46,9 @@ class ObjectSyncProtocol {
     getObjectById(objid) {
         return this.objs[objid]
     }
-    
-    
-    
+
+
+
     createArray(arrid) {
         const arr = {
             _id:arrid?arrid:makeGUID(),
@@ -79,9 +79,10 @@ class ObjectSyncProtocol {
 
     insertElementDirect(arrid, prev, value, entryid, timestamp) {
         const arr = this.getObjectById(arrid)
+        if (!arr) return console.error(`Cannot insert element into ${arrid} that does not exist`);
         //check if already in there. id p entryid and prev is the same
         if(arr._elements.some(e=>e._id === entryid && e._prev === prev)) {
-            // console.log("already processed this insertion. don't fire or change")
+            console.log("already processed this insertion. don't fire or change")
             return entryid
         }
 
@@ -122,7 +123,6 @@ class ObjectSyncProtocol {
             }
 
         } else {
-            console.log('normal')
             arr._elements.splice(index+1,0,elem)
         }
         // console.log(this.id, "final array is",arr)
@@ -150,14 +150,19 @@ class ObjectSyncProtocol {
     }
     getArrayLength(arrid) {
         const arr = this.getObjectById(arrid)
-        if (!arr) return console.error(`Cannot insert element into ${arrid} that does not exist`);
+        if (!arr) return console.error(`Cannot get array length for array ${arrid} that does not exist`);
         let len = 0
         arr._elements.forEach(el => {
             if(el._tombstone === false) len++
         })
         return len
     }
-
+    getElementAt(arrid,index) {
+        const arr = this.getObjectById(arrid)
+        if (!arr) return console.error(`Cannot get element from array ${arrid} that does not exist`);
+        const elem = arr._elements[index]
+        return elem._value
+    }
 
     createProperty(objid, name, value) {
         const obj = this.getObjectById(objid)
@@ -178,7 +183,7 @@ class ObjectSyncProtocol {
         const obj = this.getObjectById(objid)
         if(!obj) return console.error("cannot set property on object that does not exist")
         if(obj[name] === value) {
-            // console.log("property already has this value, don't fire or change")
+            console.log("property already has this value, don't fire or change")
             return
         }
         obj[name] = value
@@ -219,12 +224,16 @@ class ObjectSyncProtocol {
     }
 
     getPropertiesForObject(objid) {
-        return Object.keys(this.getObjectById(objid))
+        const obj = this.getObjectById(objid)
+        if(!obj) return console.error("cannot get properties for object that does not exist not exist")
+        return Object.keys(obj)
             .filter(key => key !== '_id')
             .filter(key => key !== '_type')
     }
     getPropertyValue(objid, key) {
-        return this.getObjectById(objid)[key]
+        const obj = this.getObjectById(objid)
+        if(!obj) return console.error("cannot get properties for object that does not exist not exist")
+        return obj[key]
     }
     hasPropertyValue(objid,key) {
         return this.getObjectById(objid).hasOwnProperty(key)
@@ -263,6 +272,7 @@ class ObjectSyncProtocol {
 class HistoryView {
     constructor(graph) {
         this.history = []
+        this.listeners = []
         graph.onChange((e)=>{
             const obj = { type:e.type}
             if(e.type === EVENT_TYPES.CREATE_PROPERTY || e.type === EVENT_TYPES.SET_PROPERTY) {
@@ -270,7 +280,14 @@ class HistoryView {
                 obj.value = e.value
             }
             this.history.push(obj)
+            this.fire(obj)
         })
+    }
+    onChange(cb) {
+        this.listeners.push(cb)
+    }
+    fire(obj) {
+        this.listeners.forEach(cb => cb(obj))
     }
     dump() {
         return this.history

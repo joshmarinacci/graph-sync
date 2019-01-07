@@ -2,7 +2,7 @@
   "name": "syncing_protocol",
   "version": "1.0.0",
   "description": "",
-  "main": "tests.js",
+  "main": "sync.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
