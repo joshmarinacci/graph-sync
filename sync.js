@@ -70,21 +70,6 @@ class ObjectSyncProtocol {
             return
         }
 
-        if(op.type === EVENT_TYPES.DELETE_OBJECT) {
-            const arr = {
-                _id:this.makeGUID(),
-                _type:'array',
-                _elements:[]
-            }
-            if(this.objs[arr._id]) {
-                console.log(`array ${arr._id} already exists. don't fire or change`)
-                return arr._id
-            }
-            this.objs[arr._id] = arr
-            this.fire(op)
-            return arr._id
-        }
-
         console.log(`CANNOT process operation of type ${op.type}`)
     }
     createObject(objid) {
