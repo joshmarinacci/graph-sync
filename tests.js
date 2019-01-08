@@ -541,6 +541,44 @@ test('tree clone',t=>{
     t.end()
 })
 
+return
+
+test('out of order, invalid object',t => {
+    const history = []
+    const A = new DocGraph()
+    A.onChange(e => history.push(e))
+
+    const R = A.createObject()
+    A.createProperty(R,'name','foo')
+    t.equals(A.getPropertyValue(R,'name'),'foo')
+
+    const B = new DocGraph()
+    history.forEach(e => B.process(e))
+    t.equals(B.getPropertyValue(R,'name'),'foo')
+
+    //now mess up the history. swap the two entries
+    history.reverse()
+    const C = new DocGraph()
+    history.forEach(e => C.process(e))
+    t.equals(C.getPropertyValue(R,'name'),'foo')
+
+    t.end()
+})
+
+
+
+test('out of order, two property sets, last one should win',t => {
+
+})
+
+test('dont recurse 1',t => {
+
+})
+test('dont recurse 2',t => {
+
+})
+
+
 
 /*
     A creates array with two objects in it, R & S
