@@ -36,8 +36,8 @@ network wrapper
 
 -------
 
-switch GUI editor to new system.
-fix up insert element
+//switch GUI editor to new system.
+//fix up insert element
 fix out of order property setting
 cleanup process(op) implementation.
 
