@@ -566,16 +566,27 @@ test('out of order, invalid object',t => {
 })
 
 
+//create array, create object, insert object into array
+test('array object causality',t => {
 
+})
+
+
+//        set property to 5, set property to 4 before the 5 setter, but received later. resolve with timestamp.
 test('out of order, two property sets, last one should win',t => {
+})
+
+//multiple operations come in out of order, one that can never be resolved. indicate it stays in the wait queue forever
+test('completely unresolved operation',t => {
 
 })
 
+//    sync receives external operation and applies it but doesn't rebroadcast it
 test('dont recurse 1',t => {
-
 })
-test('dont recurse 2',t => {
 
+//     sync receives external operation on network from self, don't apply it
+test('dont recurse 2',t => {
 })
 
 
