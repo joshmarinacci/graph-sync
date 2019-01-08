@@ -6,7 +6,6 @@ const {ObjectSyncProtocol, HistoryView,
 } = Sync
 
 function performEvent(e,graph) {
-    // console.log("performing",e)
     if(e.type === CREATE_OBJECT) graph.createObject(e.id)
     if(e.type === CREATE_PROPERTY) graph.createProperty(e.object, e.name, e.value)
     if(e.type === SET_PROPERTY) graph.setProperty(e.object, e.name, e.value)
@@ -77,7 +76,6 @@ test('sync', t => {
 
     function sync(X,Y) {
         X.onChange(e => {
-            // console.log("client changed",e)
             if(e.type === CREATE_OBJECT) Y.createObject(e.id)
             if(e.type === CREATE_PROPERTY) Y.createProperty(e.object, e.name, e.value)
             if(e.type === SET_PROPERTY) Y.setProperty(e.object, e.name, e.value)
@@ -136,7 +134,6 @@ test('undo',t => {
             this.history = []
             this.current = 0
             graph.onChange((e)=>{
-                // console.log('graph changed',e)
                 this.current++
                 if(e.type === CREATE_OBJECT) {
                     this.history.push({
@@ -155,7 +152,6 @@ test('undo',t => {
                     return
                 }
                 if(e.type === SET_PROPERTY) {
-                    console.log("looking for last",this.findLastPropertyValue(e.object, e.name))
                     this.history.push({
                         id:Math.random(),
                         type: e.type,
@@ -170,9 +166,7 @@ test('undo',t => {
         undo() {
             this.current--
             const last = this.history[this.current]
-            // console.log("last is",last)
             if(last.type === SET_PROPERTY) {
-                // console.log("undoing")
                 this.graph.setProperty(last.object,last.name, last.oldValue)
                 return
             }
@@ -180,9 +174,7 @@ test('undo',t => {
         }
         redo() {
             const last = this.history[this.current]
-            // console.log("last is",last)
             if(last.type === SET_PROPERTY) {
-                // console.log("redoing")
                 this.graph.setProperty(last.object,last.name,last.oldValue)
                 return
             }
@@ -249,25 +241,20 @@ test('jsonview',t => {
         constructor(graph) {
             this.graph = graph
             graph.onChange((e)=>{
-                // console.log("graph changed",e)
             })
         }
 
         getJSONViewById(id) {
-            // console.log("getting the view for",id)
             const root = this.graph.getObjectByProperty('id',id)
-            // console.log("found the root",root)
             return this.getJSONViewByRealId(root)
         }
         getJSONViewByRealId(id) {
             const props = this.graph.getPropertiesForObject(id)
-            // console.log("got the properties",props)
             const rootObj = {}
             props.forEach(name => {
                 rootObj[name] = this.graph.getPropertyValue(id,name)
                 if(name === 'children') {
                     rootObj.children = rootObj[name].map((objid)=>{
-                        // console.log("expanding child",objid)
                         return this.getJSONViewByRealId(objid)
                     })
                 }
@@ -386,7 +373,6 @@ test('coalesce',t => {
         }
 
         unpause() {
-            // console.log("unpausing. buffer is", this.buffer)
             const b = {}
             this.buffer.forEach(e => {
                 if(e.type === SET_PROPERTY) {
@@ -394,11 +380,8 @@ test('coalesce',t => {
                     b[e.object][e.name] = e.value
                 }
             })
-            // console.log("condensed",b)
             Object.keys(b).forEach((okey) =>{
-                // console.log("obj",okey)
                 Object.keys(b[okey]).forEach(name=>{
-                    // console.log("name",name,b[okey][name])
                     this.graph.setProperty(okey,name,b[okey][name])
                 })
             })
@@ -447,7 +430,6 @@ test('coalesce',t => {
 test('disconnected',t => {
     function follow(X,Y) {
         X.onChange(e => {
-            // console.log("client changed",e)
             if(e.type === CREATE_OBJECT) Y.createObject(e.id)
             if(e.type === CREATE_PROPERTY) Y.createProperty(e.object, e.name, e.value)
             if(e.type === SET_PROPERTY) Y.setProperty(e.object, e.name, e.value)
@@ -631,7 +613,6 @@ test('array conflict resolution',t=>{
     clearHistory(Ahistory)
     clearHistory(Bhistory)
 
-    console.log("========= offline")
 
     //disconnect A and B
     const T = A.createObject()
@@ -652,14 +633,11 @@ test('array conflict resolution',t=>{
 
 
     t.deepEqual(A.dumpGraph().arr, B.dumpGraph().arr)
-    console.log("i=====")
-    console.log(A.dumpGraph())
 
     //remove the second element of the array, U
     t.equal(A.getArrayLength(arr),4)
     A.removeElement(arr,1)
     t.equal(A.getArrayLength(arr),3)
-    console.log(A.dumpGraph())
 
     //insert V at start of the array
     const V = B.createObject()
@@ -672,51 +650,3 @@ test('array conflict resolution',t=>{
     t.end()
 })
 
-/*
-// A creates obj & prop
-// B connects to A and gets history
-// A & B disconnect
-// A adds object and sets prop of first obj
-// B adds object and sets prop on first obj
-// A & B reconnect and sync
-// verify that both A & B are the same
-test('tree disconnected two way sync',t=>{
-    const A = new ObjectSyncProtocol()
-    const R = A.createObject()
-    A.setProperty(R,'x',100)
-    A.createProperty(R,'children',[])
-
-    const B = new ObjectSyncProtocol()
-    //sync A to B
-    //disconnect A & B
-
-    //A updates property on R
-    A.setProperty(R,'x',660)
-    //A adds object S
-    const S = A.createObject()
-    A.createProperty(S,'x',44)
-    A.createProperty(S,'y', 449)
-    //add S to children of R
-    A.createProperty(R,'children',[S])
-
-    //B updates property on R
-    B.setProperty(R,'x',760)
-    //B adds object S
-    const T = B.createObject()
-    B.createProperty(T,'x',55)
-    //add T to children of R
-    A.createProperty(R,'children',[T])
-
-    // reconnect A & B and sync
-    //verify that both A & B are the same
-
-    t.deepEquals(A.dumpGraph(),{
-        R: { id:'R', x:660, children:[S,T]},
-        S: { id:'S', x:44, y:449},
-        T: { id:'T', x:55}
-    })
-
-    t.end()
-
-})
-*/

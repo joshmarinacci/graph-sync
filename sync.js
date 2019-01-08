@@ -100,25 +100,22 @@ class ObjectSyncProtocol {
         const index = arr._elements.findIndex(e => e._id === prev)
 
         const curr = arr._elements[index+1]
-        // console.log("the prev is",arr._elements[index])
-        // console.log("the curr is", curr)
-        // console.log("the new is",elem)
         //two forms of insert
         if(curr && curr._prev === prev) {
-            console.log(this.id, "must decide", elem._id, elem._timestamp, curr._id, curr._timestamp)
+            // console.log(this.id, "must decide", elem._id, elem._timestamp, curr._id, curr._timestamp)
             if(elem._timestamp > curr._timestamp) {
-                console.log('new elem first')
+                // console.log('new elem first')
                 arr._elements.splice(index+1,0,elem)
             } else if(elem._timestamp < curr._timestamp) {
-                console.log("new elem second")
+                // console.log("new elem second")
                 arr._elements.splice(index+2,0,elem)
             } else {
-                console.log("same time. go with earliest id")
+                // console.log("same time. go with earliest id")
                 if(elem._id > curr._id) {
-                    console.log('first')
+                    // console.log('first')
                     arr._elements.splice(index+1,0,elem)
                 } else {
-                    console.log("second")
+                    // console.log("second")
                     arr._elements.splice(index+2,0,elem)
                 }
             }
