@@ -10,21 +10,21 @@ const EVENT_TYPES = {
     DELETE_ELEMENT:'DELETE_ELEMENT',
     DELETE_ARRAY:'DELETE_ARRAY',
 }
-let current_id = Math.floor(Math.random()*100000000);
-function makeGUID() {
-    current_id++
-    return current_id+''
-}
-let LOCAL_ID = makeGUID()
 
 class ObjectSyncProtocol {
-    constructor() {
+    constructor(settings) {
+        settings = settings || {}
         this.objs = {}
         this.listeners = []
+        this.host = settings.host || this.makeGUID()
     }
+    makeGUID() {
+        return Math.floor(Math.random()*100000000) + ""
+    }
+
     createObject(objid) {
         const obj = {
-            _id:objid?objid:makeGUID(),
+            _id:objid?objid:this.makeGUID(),
             _type:'object',
         }
         if(this.objs[obj._id]) {
@@ -32,7 +32,7 @@ class ObjectSyncProtocol {
             return obj._id
         }
         this.objs[obj._id] = obj
-        this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id, host:LOCAL_ID})
+        this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id, host:this.host})
         return obj._id
     }
     deleteObject(objid) {
@@ -42,7 +42,7 @@ class ObjectSyncProtocol {
             return
         }
         delete this.objs[obj._id]
-        this.fire({type:EVENT_TYPES.DELETE_OBJECT,id:obj._id, host:LOCAL_ID})
+        this.fire({type:EVENT_TYPES.DELETE_OBJECT,id:obj._id, host:this.host})
     }
     getObjectById(objid) {
         return this.objs[objid]
@@ -61,7 +61,7 @@ class ObjectSyncProtocol {
             return arr._id
         }
         this.objs[arr._id] = arr
-        this.fire({type:EVENT_TYPES.CREATE_ARRAY,id:arr._id, host:LOCAL_ID })
+        this.fire({type:EVENT_TYPES.CREATE_ARRAY,id:arr._id, host:this.host })
         return arr._id
     }
 
@@ -90,7 +90,7 @@ class ObjectSyncProtocol {
         //console.log("inserting",value,'after',prev,'into',arr,'with id',entryid)
 
         const elem = {
-            _id:entryid?entryid:makeGUID(),
+            _id:entryid?entryid:this.makeGUID(),
             _value:value,
             _prev:prev,
             _timestamp:timestamp,
@@ -133,7 +133,7 @@ class ObjectSyncProtocol {
             after:prev,
             value:value,
             entry:elem._id,
-            host:LOCAL_ID,
+            host:this.host,
             timestamp:Date.now(),
         })
     }
@@ -145,7 +145,7 @@ class ObjectSyncProtocol {
         elem._tombstone = true
         this.fire({
             type:EVENT_TYPES.DELETE_ELEMENT,
-            host:LOCAL_ID,
+            host:this.host,
             object:arrid,
             entry:elem._id,
             timestamp: Date.now()
@@ -177,14 +177,14 @@ class ObjectSyncProtocol {
         obj[name] = value
         this.fire({
             type:EVENT_TYPES.CREATE_PROPERTY,
-            host:LOCAL_ID,
+            host:this.host,
             object:objid,
             name:name,
             value:value
         })
     }
     setProperty(objid,name,value,original) {
-        if(original && original.host === LOCAL_ID) {
+        if(original && original.host === this.host) {
             console.log("this is our own. don't recurse")
             return;
         }
@@ -197,7 +197,7 @@ class ObjectSyncProtocol {
         obj[name] = value
         this.fire({
             type:EVENT_TYPES.SET_PROPERTY,
-            host:LOCAL_ID,
+            host:this.host,
             object:objid,
             name:name,
             value:value
@@ -205,7 +205,7 @@ class ObjectSyncProtocol {
     }
 
     getHostId() {
-        return LOCAL_ID
+        return this.host
     }
 
     applyCommand(cmd) {

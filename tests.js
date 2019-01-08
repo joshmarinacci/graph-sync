@@ -423,6 +423,9 @@ test('coalesce',t => {
     throttle.setProperty(A,'x',103)
     throttle.unpause()
 
+    history.forEach(h=>{
+        delete h.host
+    })
     t.deepEquals(history,
         [
             {type:CREATE_OBJECT, id:A},
@@ -648,7 +651,7 @@ test('array conflict resolution',t=>{
     clearHistory(Ahistory)
 
 
-    t.deepEqual(A.dumpGraph(), B.dumpGraph())
+    t.deepEqual(A.dumpGraph().arr, B.dumpGraph().arr)
     console.log("i=====")
     console.log(A.dumpGraph())
 
@@ -664,13 +667,7 @@ test('array conflict resolution',t=>{
     B.insertElement(arr,1, V)
     updateFromB(B,A)
 
-    t.deepEqual(A.dumpGraph(),{
-        R: {id:'R'},
-        S: {id:'S'},
-        T: {id:'T'},
-        U: {id:'U'},
-        V: {id:'V'},
-        arr:[R,V,T,S]})
+    t.deepEqual(A.dumpGraph().arr,[R,V,T,S])
 
     t.end()
 })
