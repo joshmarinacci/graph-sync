@@ -1,6 +1,6 @@
 const test = require('tape')
 const Sync = require('./sync.js')
-const {ObjectSyncProtocol, HistoryView,
+const {ObjectSyncProtocol, HistoryView, DocGraph,
     SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY, DELETE_PROPERTY, DELETE_OBJECT,
     CREATE_ARRAY, INSERT_ELEMENT,
 } = Sync
@@ -18,7 +18,7 @@ function performEvent(e,graph) {
  create object A as child of root with property x = 100
   */
 test('basic',t => {
-    const sync = new ObjectSyncProtocol()
+    const sync = new DocGraph()
     const root = sync.createObject()
     sync.createProperty(root,'id','root')
 
@@ -46,7 +46,7 @@ test('basic',t => {
  * dump the history. shows create object, create prop, set prop
  */
 test('history', t => {
-    const sync = new ObjectSyncProtocol()
+    const sync = new DocGraph()
     const history = new HistoryView(sync)
     const A = sync.createObject()
     sync.createProperty(A,'id','A')
@@ -71,20 +71,11 @@ sync
 user A can see R.x = 200
 */
 test('sync', t => {
-    const A = new ObjectSyncProtocol()
-    const B = new ObjectSyncProtocol()
+    const A = new DocGraph({host:'A'})
+    const B = new DocGraph({host:'B'})
 
-    function sync(X,Y) {
-        X.onChange(e => {
-            if(e.type === CREATE_OBJECT) Y.createObject(e.id)
-            if(e.type === CREATE_PROPERTY) Y.createProperty(e.object, e.name, e.value)
-            if(e.type === SET_PROPERTY) Y.setProperty(e.object, e.name, e.value)
-            if(e.type === DELETE_PROPERTY) Y.deleteProperty(e.object, e.name)
-            if(e.type === DELETE_OBJECT) Y.deleteObject(e.id)
-        })
-    }
-    sync(A,B)
-    sync(B,A)
+    A.onChange(e => B.process(e))
+    B.onChange(e => A.process(e))
 
     const aR1 = A.createObject()
     A.createProperty(aR1,'id','R')
@@ -115,6 +106,8 @@ test('sync', t => {
 
     t.end()
 })
+
+return
 
 /*
 create object R with R.x = 100

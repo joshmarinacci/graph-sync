@@ -22,6 +22,55 @@ class ObjectSyncProtocol {
         return Math.floor(Math.random()*100000000) + ""
     }
 
+    process(op) {
+        console.log(`${this.getHostId()}:processing op`,op)
+        if(op.type === EVENT_TYPES.CREATE_OBJECT) {
+            const obj = {
+                _id:op.id,
+                _type:'object',
+            }
+            if(this.objs[obj._id]) {
+                console.log(`object ${obj._id} already exists. don't fire or change`)
+                return obj._id
+            }
+            this.objs[obj._id] = obj
+
+            this.fire(op)
+            return obj._id
+        }
+        if(op.type === EVENT_TYPES.CREATE_PROPERTY) {
+            const obj = this.getObjectById(op.object)
+            if(!obj) return console.error(`Cannot create property ${op.name} on object ${op.object} that does not exist`)
+            if(obj[op.name]) return console.log("property already exists. don't fire or change")
+            obj[op.name] = op.value
+            this.fire(op)
+            return
+        }
+        if(op.type === EVENT_TYPES.SET_PROPERTY) {
+            const obj = this.getObjectById(op.object)
+            if(!obj) return console.error(`Cannot set property ${op.name} on object ${op.object} that does not exist`)
+            if(obj[op.name] === op.value) return console.log("property already has this value, don't fire or change")
+            obj[op.name] = op.value
+            this.fire(op)
+            return
+        }
+        if(op.type === EVENT_TYPES.DELETE_PROPERTY) {
+            const obj = this.getObjectById(op.object)
+            if(!obj) return console.error(`cannot delete property on object ${ob.object} that does not exist`)
+            if(!obj.hasOwnProperty(op.name)) return console.error(`object doesn't have the property ${op.name}`)
+            delete obj[op.name]
+            this.fire(op)
+            return
+        }
+        if(op.type === EVENT_TYPES.DELETE_OBJECT) {
+            const obj = this.getObjectById(op.id)
+            if(!obj) return console.error(`no such object exists with id ${op.id}`)
+            delete this.objs[obj._id]
+            this.fire(op)
+            return
+        }
+        console.log(`CANNOT process operation of type ${op.type}`)
+    }
     createObject(objid) {
         const obj = {
             _id:objid?objid:this.makeGUID(),
@@ -285,6 +334,76 @@ class ObjectSyncProtocol {
     }
 }
 
+class DocGraph {
+    constructor(settings) {
+        this.graph = new ObjectSyncProtocol(settings)
+    }
+    onChange(cb) {
+        return this.graph.onChange(cb)
+    }
+    process(op) {
+        return this.graph.process(op)
+    }
+    getObjectByProperty(key,value) {
+        return this.graph.getObjectByProperty(key,value)
+    }
+    getPropertyValue(objid,key) {
+        return this.graph.getPropertyValue(objid,key)
+    }
+    hasPropertyValue(objid,key) {
+        return this.graph.hasPropertyValue(objid,key)
+    }
+
+    createObject() {
+        const op = {
+            type:EVENT_TYPES.CREATE_OBJECT,
+            id:this.graph.makeGUID(),
+            host:this.graph.getHostId()
+        }
+        return this.graph.process(op)
+    }
+    createProperty(id,name,value) {
+        const op = {
+            type:EVENT_TYPES.CREATE_PROPERTY,
+            host:this.graph.getHostId(),
+            object:id,
+            name:name,
+            value:value
+        }
+        return this.graph.process(op)
+    }
+    setProperty(id,name,value) {
+        const op = {
+            type:EVENT_TYPES.SET_PROPERTY,
+            host:this.graph.getHostId(),
+            object:id,
+            name:name,
+            value:value
+        }
+        return this.graph.process(op)
+    }
+    deleteProperty(id,name) {
+        const op = {
+            type:EVENT_TYPES.DELETE_PROPERTY,
+            host:this.graph.getHostId(),
+            object:id,
+            name:name,
+        }
+        return this.graph.process(op)
+    }
+    deleteObject(id) {
+        const op = {
+            type:EVENT_TYPES.DELETE_OBJECT,
+            host:this.graph.getHostId(),
+            id:id,
+        }
+        return this.graph.process(op)
+    }
+    dumpGraph() {
+        return this.graph.dumpGraph()
+    }
+}
+
 class HistoryView {
     constructor(graph) {
         this.history = []
@@ -309,7 +428,9 @@ class HistoryView {
         return this.history
     }
 }
+
 module.exports.ObjectSyncProtocol = ObjectSyncProtocol
+module.exports.DocGraph = DocGraph
 module.exports.HistoryView = HistoryView
 Object.keys(EVENT_TYPES).forEach(key => {
     module.exports[key] = EVENT_TYPES[key]
