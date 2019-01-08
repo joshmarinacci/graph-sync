@@ -1,0 +1,34 @@
+
+
+
+add tests for
+    two operations come in out of order. should be able to resolve them
+        create array, create object, insert object into array
+        set property to 5, set property to 4 before the 5 setter, but received later. resolve with timestamp.
+    verify that a truly invalid operation is invalid, returns a false
+    multiple operations come in out of order, one that can never be resolved. indicate it stays in the wait queue forever
+    sync receives external operation and applies it but doesn't rebroadcast it
+    sync receives external operation on network from self, don't apply it
+
+
+
+all operations have host,timestamp,sequence
+set these in the constructor for a sync object
+optionally set the host in the sync object settings constructor
+make wrapper to build the semantic operation
+make core only understand the actual operations
+
+algorithm
+
+receive operation
+if
+    is not valid but could be, put into wait queue
+else
+    apply operation
+    fire update
+    retry operations in the wait queue
+
+
+network wrapper
+    don't accept incoming messages from self
+    don't publish outgoing messages from not-self

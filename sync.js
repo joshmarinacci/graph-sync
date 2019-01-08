@@ -15,6 +15,7 @@ function makeGUID() {
     current_id++
     return current_id+''
 }
+let LOCAL_ID = makeGUID()
 
 class ObjectSyncProtocol {
     constructor() {
@@ -31,7 +32,7 @@ class ObjectSyncProtocol {
             return obj._id
         }
         this.objs[obj._id] = obj
-        this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id})
+        this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id, host:LOCAL_ID})
         return obj._id
     }
     deleteObject(objid) {
@@ -41,7 +42,7 @@ class ObjectSyncProtocol {
             return
         }
         delete this.objs[obj._id]
-        this.fire({type:EVENT_TYPES.DELETE_OBJECT,id:obj._id})
+        this.fire({type:EVENT_TYPES.DELETE_OBJECT,id:obj._id, host:LOCAL_ID})
     }
     getObjectById(objid) {
         return this.objs[objid]
@@ -60,7 +61,7 @@ class ObjectSyncProtocol {
             return arr._id
         }
         this.objs[arr._id] = arr
-        this.fire({type:EVENT_TYPES.CREATE_ARRAY,id:arr._id})
+        this.fire({type:EVENT_TYPES.CREATE_ARRAY,id:arr._id, host:LOCAL_ID })
         return arr._id
     }
 
@@ -132,6 +133,7 @@ class ObjectSyncProtocol {
             after:prev,
             value:value,
             entry:elem._id,
+            host:LOCAL_ID,
             timestamp:Date.now(),
         })
     }
@@ -143,6 +145,7 @@ class ObjectSyncProtocol {
         elem._tombstone = true
         this.fire({
             type:EVENT_TYPES.DELETE_ELEMENT,
+            host:LOCAL_ID,
             object:arrid,
             entry:elem._id,
             timestamp: Date.now()
@@ -174,12 +177,17 @@ class ObjectSyncProtocol {
         obj[name] = value
         this.fire({
             type:EVENT_TYPES.CREATE_PROPERTY,
+            host:LOCAL_ID,
             object:objid,
             name:name,
             value:value
         })
     }
-    setProperty(objid,name,value) {
+    setProperty(objid,name,value,original) {
+        if(original && original.host === LOCAL_ID) {
+            console.log("this is our own. don't recurse")
+            return;
+        }
         const obj = this.getObjectById(objid)
         if(!obj) return console.error("cannot set property on object that does not exist")
         if(obj[name] === value) {
@@ -189,10 +197,21 @@ class ObjectSyncProtocol {
         obj[name] = value
         this.fire({
             type:EVENT_TYPES.SET_PROPERTY,
+            host:LOCAL_ID,
             object:objid,
             name:name,
             value:value
         })
+    }
+
+    getHostId() {
+        return LOCAL_ID
+    }
+
+    applyCommand(cmd) {
+        if(cmd.type === EVENT_TYPES.SET_PROPERTY) {
+            console.log("doing new form of set property")
+        }
     }
     deleteProperty(objid,name) {
         const obj = this.getObjectById(objid)
