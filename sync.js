@@ -137,7 +137,7 @@ class ObjectSyncProtocol {
         }
 
         if(op.type === EVENT_TYPES.INSERT_ELEMENT) {
-            console.log("working on insert element")
+            // console.log("working on insert element")
             const arr = this.getObjectById(op.array)
             if (!arr) return console.error(`Cannot insert element into ${op.array} that does not exist`);
             //check if already in there. id p entryid and prev is the same
@@ -145,7 +145,7 @@ class ObjectSyncProtocol {
                 console.log("already processed this insertion. don't fire or change")
                 return
             }
-            console.log("inserting",op.value,'after',op.prev,'into',arr,'with id',op.entryid)
+            // console.log("inserting",op.value,'after',op.prev,'into',arr,'with id',op.entryid)
 
             const elem = {
                 _id:op.entryid,
@@ -156,32 +156,32 @@ class ObjectSyncProtocol {
             }
             //calculate the index of the prev
             const index = arr._elements.findIndex(e => e._id === op.prev)
-            console.log("index of prev is",index)
+            // console.log("index of prev is",index)
 
             const curr = arr._elements[index+1]
             //two forms of insert
             if(curr && curr._prev === elem._prev) {
-                console.log(this.id, "must decide", elem._id, elem._timestamp, curr._id, curr._timestamp)
+                // console.log(this.id, "must decide", elem._id, elem._timestamp, curr._id, curr._timestamp)
                 if(elem._timestamp > curr._timestamp) {
-                    console.log('new elem first')
+                    // console.log('new elem first')
                     arr._elements.splice(index+1,0,elem)
                 } else if(elem._timestamp < curr._timestamp) {
-                    console.log("new elem second")
+                    // console.log("new elem second")
                     arr._elements.splice(index+2,0,elem)
                 } else {
-                    console.log("same time. go with earliest id")
+                    // console.log("same time. go with earliest id")
                     if(elem._id > curr._id) {
-                        console.log('first')
+                        // console.log('first')
                         arr._elements.splice(index+1,0,elem)
                     } else {
-                        console.log("second")
+                        // console.log("second")
                         arr._elements.splice(index+2,0,elem)
                     }
                 }
             } else {
                 arr._elements.splice(index+1,0,elem)
             }
-            console.log("final array is",arr)
+            // console.log("final array is",arr)
             this.fire(op)
             return
         }
@@ -190,7 +190,9 @@ class ObjectSyncProtocol {
             const arr = this.getObjectById(op.array)
             const elem = arr._elements.find(elem => elem._id === op.entry)
             elem._tombstone = true
+            // console.log("final array is",arr)
             this.fire(op)
+            return
         }
 
 
@@ -341,8 +343,17 @@ class ObjectSyncProtocol {
     getElementAt(arrid,index) {
         const arr = this.getObjectById(arrid)
         if (!arr) return console.error(`Cannot get element from array ${arrid} that does not exist`);
-        const elem = arr._elements[index]
-        return elem._value
+        // console.log('real array length',arr._elements.length)
+        // console.log("logical array length",this.getArrayLength(arrid))
+        let count = 0
+        for(let i=0; i<arr._elements.length; i++) {
+            const elem = arr._elements[i]
+            if(elem._tombstone) continue
+            // console.log("checking",index,count,elem)
+            if(count === index) return elem._value
+            count++
+        }
+        return console.error(`cannot find element for array ${arrid} at index ${index}`)
     }
     /*
     createProperty(objid, name, value) {

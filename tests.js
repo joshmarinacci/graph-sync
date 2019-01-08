@@ -54,6 +54,29 @@ test('basic',t => {
     t.end()
 })
 
+test('array access',t => {
+    const sync = new DocGraph()
+    const R = sync.createArray()
+    const A = sync.createObject()
+    const B = sync.createObject()
+    sync.insertElement(R,0,A)
+    sync.insertElement(R,1,B)
+
+    // console.log('graph',sync.dumpGraph()[R])
+    t.deepEquals(sync.dumpGraph()[R],[A,B])
+    t.equals(sync.getElementAt(R,0),A)
+    t.equals(sync.getElementAt(R,1),B)
+    t.equals(sync.getArrayLength(R),2)
+
+    //delete A
+    //confirm contents and length
+    sync.removeElement(R,0)
+    t.equals(sync.getArrayLength(R),1)
+    t.equals(sync.getElementAt(R,0),B)
+    t.deepEquals(sync.dumpGraph()[R],[B])
+    t.end()
+})
+
 
 /*
  * create object A with property x = 100
