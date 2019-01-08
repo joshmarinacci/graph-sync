@@ -101,6 +101,7 @@ class ObjectSyncProtocol {
 
         console.log(`CANNOT process operation of type ${op.type}`)
     }
+    /*
     createObject(objid) {
         const obj = {
             _id:objid?objid:this.makeGUID(),
@@ -114,6 +115,8 @@ class ObjectSyncProtocol {
         this.fire({type:EVENT_TYPES.CREATE_OBJECT,id:obj._id, host:this.host})
         return obj._id
     }
+    */
+    /*
     deleteObject(objid) {
         const obj = this.getObjectById(objid)
         if(!obj) {
@@ -123,12 +126,13 @@ class ObjectSyncProtocol {
         delete this.objs[obj._id]
         this.fire({type:EVENT_TYPES.DELETE_OBJECT,id:obj._id, host:this.host})
     }
+    */
     getObjectById(objid) {
         return this.objs[objid]
     }
 
 
-
+    /*
     createArray(arrid) {
         const arr = {
             _id:arrid?arrid:makeGUID(),
@@ -142,7 +146,8 @@ class ObjectSyncProtocol {
         this.objs[arr._id] = arr
         this.fire({type:EVENT_TYPES.CREATE_ARRAY,id:arr._id, host:this.host })
         return arr._id
-    }
+    }*/
+
 
     insertElement(arrid, index, elementid) {
         // console.log('inserting at', index, 'value', elementid)
@@ -213,7 +218,7 @@ class ObjectSyncProtocol {
             timestamp:Date.now(),
         })
     }
-
+    /*
     removeElement(arrid, index) {
         const arr = this.getObjectById(arrid)
         if (!arr) return console.error(`Cannot insert element into ${arrid} that does not exist`);
@@ -227,6 +232,7 @@ class ObjectSyncProtocol {
             timestamp: Date.now()
         })
     }
+    */
     getArrayLength(arrid) {
         const arr = this.getObjectById(arrid)
         if (!arr) return console.error(`Cannot get array length for array ${arrid} that does not exist`);
@@ -242,7 +248,7 @@ class ObjectSyncProtocol {
         const elem = arr._elements[index]
         return elem._value
     }
-
+    /*
     createProperty(objid, name, value) {
         const obj = this.getObjectById(objid)
         if(!obj) return console.error(`Cannot set property ${name} on object ${objid} that does not exist`)
@@ -279,16 +285,13 @@ class ObjectSyncProtocol {
             value:value
         })
     }
+    */
 
     getHostId() {
         return this.host
     }
 
-    applyCommand(cmd) {
-        if(cmd.type === EVENT_TYPES.SET_PROPERTY) {
-            console.log("doing new form of set property")
-        }
-    }
+    /*
     deleteProperty(objid,name) {
         const obj = this.getObjectById(objid)
         if(!obj) return console.error("cannot delete property on object that does not exist")
@@ -300,6 +303,7 @@ class ObjectSyncProtocol {
             name:name,
         })
     }
+    */
 
     onChange(cb) {
         this.listeners.push(cb)

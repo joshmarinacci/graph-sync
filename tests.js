@@ -414,7 +414,7 @@ test('coalesce',t => {
  * Reconnect and sync without conflicts.
  * Confirm that the final tree snapshot is correct.
  */
-
+/*
 test('disconnected',t => {
     function follow(X,Y) {
         X.onChange(e => {
@@ -496,6 +496,7 @@ test('disconnected',t => {
     t.equal(B.getPropertyValue(R,'y'),20)
     t.end()
 })
+*/
 
 // set property on a deleted object. Confirm that the final tree snapshot is correct.
 test('invalid property setting',t => {
