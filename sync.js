@@ -28,10 +28,31 @@ class ObjectSyncProtocol {
             const obj = this.getObjectById(op.object)
             if(!obj) return false
         }
+        if(op.type === EVENT_TYPES.SET_PROPERTY) {
+            const obj = this.getObjectById(op.object)
+            if(!obj) return false
+        }
+        if(op.type === EVENT_TYPES.DELETE_PROPERTY) {
+            const obj = this.getObjectById(op.object)
+            if(!obj) return false
+        }
+        if(op.type === EVENT_TYPES.DELETE_OBJECT) {
+            const obj = this.getObjectById(op.id)
+            if(!obj) return false
+        }
+        if(op.type === EVENT_TYPES.INSERT_ELEMENT) {
+            const array = this.getObjectById(op.array)
+            if(!array) return false
+        }
+        if(op.type === EVENT_TYPES.DELETE_ELEMENT) {
+            const array = this.getObjectById(op.array)
+            if(!array) return false
+        }
         return true
     }
 
     retryWaitBuffer() {
+        // console.log("::: retrying")
         let i = 0
         while(i < this.waitBuffer.length) {
             const op = this.waitBuffer[i]
@@ -111,6 +132,7 @@ class ObjectSyncProtocol {
             }
             this.objs[arr._id] = arr
             this.fire(op)
+            this.retryWaitBuffer()
             return arr._id
         }
 
@@ -164,6 +186,13 @@ class ObjectSyncProtocol {
             return
         }
 
+        if(op.type === EVENT_TYPES.DELETE_ELEMENT) {
+            const arr = this.getObjectById(op.array)
+            const elem = arr._elements.find(elem => elem._id === op.entry)
+            elem._tombstone = true
+            this.fire(op)
+        }
+
 
         console.log(`CANNOT process operation of type ${op.type}`)
     }
@@ -214,7 +243,7 @@ class ObjectSyncProtocol {
         return arr._id
     }*/
 
-
+    /*
     insertElement(arrid, index, elementid) {
         // console.log('inserting at', index, 'value', elementid)
         const arr = this.getObjectById(arrid)
@@ -283,7 +312,8 @@ class ObjectSyncProtocol {
             host:this.host,
             timestamp:Date.now(),
         })
-    }
+    }*/
+
     /*
     removeElement(arrid, index) {
         const arr = this.getObjectById(arrid)
@@ -548,10 +578,21 @@ class DocGraph {
             prev: -1,
         }
         if(index > 0) {
-            op.prev = this.graph.getElementAt(arrid,index-1)._id
+            op.prev = this.graph.getObjectById(arrid)._elements[index - 1]._id
         }
         return this.graph.process(op)
     }
+    removeElement(arrid, index) {
+        const op = {
+            type: EVENT_TYPES.DELETE_ELEMENT,
+            host: this.graph.getHostId(),
+            timestamp:Date.now(),
+            array:arrid,
+        }
+        op.entry = this.graph.getObjectById(arrid)._elements[index]._id
+        return this.graph.process(op)
+    }
+
 }
 
 class HistoryView {

@@ -27,15 +27,30 @@ test('basic',t => {
     sync.createProperty(A,'id','A')
     sync.createProperty(A,'x',100)
 
-    sync.createProperty(root,'children',[])
-    sync.setProperty(root,'children',[A])
+    const B = sync.createObject()
+    sync.createProperty(B,'id','B')
 
+    const R = sync.createArray()
+    sync.setProperty(root,'children',R)
+    sync.insertElement(R,0,A)
+    sync.insertElement(R,1,B)
 
     const graph1 = sync.dumpGraph()
-    t.deepEquals(graph1, {
-        root: {id: 'root', children: [A]},
+    const ans = {
+        root: {id: 'root', children: R},
         A: {id: 'A',x:100},
-    })
+        B: {id: 'B'},
+    }
+    ans[R] = [A,B]
+    t.deepEquals(graph1, ans)
+    t.equals(sync.getArrayLength(R),2)
+
+
+    sync.removeElement(R,1)
+    ans[R] = [A]
+    t.deepEquals(sync.dumpGraph(),ans)
+    t.equals(sync.getArrayLength(R),1)
+
     t.end()
 })
 
@@ -53,7 +68,12 @@ test('history', t => {
     sync.createProperty(A,'x',100)
     sync.setProperty(A,'x',200)
 
-    t.deepEquals(history.dump(),[
+    const dump = history.dump().map((e)=>{
+        delete e.host
+        delete e.timestamp
+        return e
+    })
+    t.deepEquals(dump,[
         { type:CREATE_OBJECT},
         { type:CREATE_PROPERTY,name:'id',value:'A'},
         { type:CREATE_PROPERTY,name:'x',value:100},
@@ -398,6 +418,7 @@ test('coalesce',t => {
 
     history.forEach(h=>{
         delete h.host
+        delete h.timestamp
     })
     t.deepEquals(history,
         [
@@ -577,12 +598,11 @@ test('out of order, invalid object',t => {
     t.end()
 })
 
-return
 
 //create array, create object, insert object into array
 test('array object causality',t => {
     const history = []
-    const A = new DocGraph()
+    const A = new DocGraph({host:'A'})
     A.onChange(e => history.push(e))
 
     const S = A.createArray()
@@ -590,19 +610,21 @@ test('array object causality',t => {
     A.insertElement(S,0,R)
     t.equals(A.getArrayLength(S),1)
 
-    const B = new DocGraph()
+    const B = new DocGraph({host:'B'})
     history.forEach(e => B.process(e))
     t.equals(A.getArrayLength(S),1)
 
     //now mess up the history. swap the two entries
     history.reverse()
-    const C = new DocGraph()
+    const C = new DocGraph({host:'C'})
     history.forEach(e => C.process(e))
+    console.log(C.graph)
     t.equals(C.getArrayLength(S),1)
     t.end()
 
 })
 
+return
 
 //        set property to 5, set property to 4 before the 5 setter, but received later. resolve with timestamp.
 test('out of order, two property sets, last one should win',t => {
