@@ -37,8 +37,10 @@ network wrapper
 -------
 
 switch GUI editor to new system.
-try to delete old implementations of createObject, etc.
-write a testable form of network. this is hard.
-//implement receive operation algorithm. make sure it works.
 fix up insert element
 fix out of order property setting
+cleanup process(op) implementation.
+
+//try to delete old implementations of createObject, etc.
+write a testable form of network. this is hard.
+//implement receive operation algorithm. make sure it works.
