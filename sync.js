@@ -99,7 +99,23 @@ class ObjectSyncProtocol {
             return
         }
 
-        console.log(`CANNOT process operation of type ${op.type}`)
+        if(op.type === EVENT_TYPES.CREATE_ARRAY) {
+            const arr = {
+                _id: op.id,
+                _type: 'array',
+                _elements: []
+            }
+            if (this.objs[arr._id]) {
+                console.log("array already exists. don't fire or change")
+                return arr._id
+            }
+            this.objs[arr._id] = arr
+            this.fire(op)
+            return arr._id
+        }
+
+
+            console.log(`CANNOT process operation of type ${op.type}`)
     }
     /*
     createObject(objid) {
@@ -396,6 +412,13 @@ class DocGraph {
     getPropertiesForObject(objid) {
         return this.graph.getPropertiesForObject(objid)
     }
+    getArrayLength(id) {
+        return this.graph.getArrayLength(id)
+    }
+    getElementAt(id,index) {
+        return this.graph.getElementAt(id,index)
+    }
+
 
     dumpGraph() {
         return this.graph.dumpGraph()
@@ -458,6 +481,10 @@ class DocGraph {
             id: this.graph.makeGUID(),
         }
         return this.graph.process(op)
+    }
+
+    insertElement(arrid, index, elementid) {
+        return this.graph.insertElement(arrid,index,elementid)
     }
 }
 
