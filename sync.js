@@ -69,6 +69,22 @@ class ObjectSyncProtocol {
             this.fire(op)
             return
         }
+
+        if(op.type === EVENT_TYPES.DELETE_OBJECT) {
+            const arr = {
+                _id:this.makeGUID(),
+                _type:'array',
+                _elements:[]
+            }
+            if(this.objs[arr._id]) {
+                console.log(`array ${arr._id} already exists. don't fire or change`)
+                return arr._id
+            }
+            this.objs[arr._id] = arr
+            this.fire(op)
+            return arr._id
+        }
+
         console.log(`CANNOT process operation of type ${op.type}`)
     }
     createObject(objid) {
@@ -338,69 +354,92 @@ class DocGraph {
     constructor(settings) {
         this.graph = new ObjectSyncProtocol(settings)
     }
+
     onChange(cb) {
         return this.graph.onChange(cb)
     }
+
     process(op) {
         return this.graph.process(op)
     }
-    getObjectByProperty(key,value) {
-        return this.graph.getObjectByProperty(key,value)
+
+    getObjectByProperty(key, value) {
+        return this.graph.getObjectByProperty(key, value)
     }
-    getPropertyValue(objid,key) {
-        return this.graph.getPropertyValue(objid,key)
+
+    getPropertyValue(objid, key) {
+        return this.graph.getPropertyValue(objid, key)
     }
-    hasPropertyValue(objid,key) {
-        return this.graph.hasPropertyValue(objid,key)
+
+    hasPropertyValue(objid, key) {
+        return this.graph.hasPropertyValue(objid, key)
+    }
+
+    getPropertiesForObject(objid) {
+        return this.graph.getPropertiesForObject(objid)
+    }
+
+    dumpGraph() {
+        return this.graph.dumpGraph()
     }
 
     createObject() {
         const op = {
-            type:EVENT_TYPES.CREATE_OBJECT,
-            id:this.graph.makeGUID(),
-            host:this.graph.getHostId()
+            type: EVENT_TYPES.CREATE_OBJECT,
+            id: this.graph.makeGUID(),
+            host: this.graph.getHostId()
         }
         return this.graph.process(op)
     }
-    createProperty(id,name,value) {
+
+    createProperty(id, name, value) {
         const op = {
-            type:EVENT_TYPES.CREATE_PROPERTY,
-            host:this.graph.getHostId(),
-            object:id,
-            name:name,
-            value:value
+            type: EVENT_TYPES.CREATE_PROPERTY,
+            host: this.graph.getHostId(),
+            object: id,
+            name: name,
+            value: value
         }
         return this.graph.process(op)
     }
-    setProperty(id,name,value) {
+
+    setProperty(id, name, value) {
         const op = {
-            type:EVENT_TYPES.SET_PROPERTY,
-            host:this.graph.getHostId(),
-            object:id,
-            name:name,
-            value:value
+            type: EVENT_TYPES.SET_PROPERTY,
+            host: this.graph.getHostId(),
+            object: id,
+            name: name,
+            value: value
         }
         return this.graph.process(op)
     }
-    deleteProperty(id,name) {
+
+    deleteProperty(id, name) {
         const op = {
-            type:EVENT_TYPES.DELETE_PROPERTY,
-            host:this.graph.getHostId(),
-            object:id,
-            name:name,
+            type: EVENT_TYPES.DELETE_PROPERTY,
+            host: this.graph.getHostId(),
+            object: id,
+            name: name,
         }
         return this.graph.process(op)
     }
+
     deleteObject(id) {
         const op = {
-            type:EVENT_TYPES.DELETE_OBJECT,
-            host:this.graph.getHostId(),
-            id:id,
+            type: EVENT_TYPES.DELETE_OBJECT,
+            host: this.graph.getHostId(),
+            id: id,
         }
         return this.graph.process(op)
     }
-    dumpGraph() {
-        return this.graph.dumpGraph()
+
+    createArray() {
+        const op = {
+            type: EVENT_TYPES.CREATE_ARRAY,
+            host: this.graph.getHostId(),
+            id: this.graph.makeGUID(),
+        }
+        return this.graph.process(op)
     }
 }
 

@@ -107,7 +107,6 @@ test('sync', t => {
     t.end()
 })
 
-return
 
 /*
 create object R with R.x = 100
@@ -203,7 +202,7 @@ test('undo',t => {
         }
     }
 
-    const sync = new ObjectSyncProtocol()
+    const sync = new DocGraph({host:'doc'})
     const undoqueue = new UndoQueue(sync)
 
     const R = sync.createObject()
@@ -257,7 +256,7 @@ test('jsonview',t => {
         }
     }
 
-    const sync = new ObjectSyncProtocol()
+    const sync = new DocGraph({host:'json'})
     const jsonview = new JSONView(sync)
 
     const O1 = sync.createObject()
@@ -383,11 +382,9 @@ test('coalesce',t => {
         }
     }
 
-    const sync = new ObjectSyncProtocol()
+    const sync = new DocGraph()
     const history = []
-    sync.onChange((e)=>{
-        history.push(e)
-    })
+    sync.onChange(e => history.push(e))
 
     const throttle = new Throttle(sync)
 
@@ -411,8 +408,6 @@ test('coalesce',t => {
     )
     t.end()
 })
-
-
 
 /*
  * record a sequence of changes while disconnected.
@@ -504,7 +499,7 @@ test('disconnected',t => {
 
 // set property on a deleted object. Confirm that the final tree snapshot is correct.
 test('invalid property setting',t => {
-    const sync = new ObjectSyncProtocol()
+    const sync = new DocGraph()
 
     const R = sync.createObject()
     sync.createProperty(R,'id','R')
@@ -526,7 +521,7 @@ test('invalid property setting',t => {
 test('tree clone',t=>{
     const history = []
     let historyCount = 0
-    const sync = new ObjectSyncProtocol()
+    const sync = new DocGraph()
     sync.onChange((e)=> {
         historyCount++
         history.push({event:e,count:historyCount})
@@ -538,11 +533,8 @@ test('tree clone',t=>{
 
     t.deepEquals(sync.dumpGraph(),{ R: { id:'R', x:200 }})
 
-    function updateFrom(from,to) {
-        history.forEach((e)=> performEvent(e.event,to))
-    }
-    const sync2 = new ObjectSyncProtocol()
-    updateFrom(sync,sync2)
+    const sync2 = new DocGraph()
+    history.forEach(e => sync2.process(e.event))
 
     t.deepEquals(sync2.dumpGraph(),{ R: { id:'R', x:200 }})
 
