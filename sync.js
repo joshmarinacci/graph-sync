@@ -17,13 +17,41 @@ class ObjectSyncProtocol {
         this.objs = {}
         this.listeners = []
         this.host = settings.host || this.makeGUID()
+        this.waitBuffer = []
     }
     makeGUID() {
         return Math.floor(Math.random()*100000000) + ""
     }
 
+    isValidOperation(op) {
+        if(op.type === EVENT_TYPES.CREATE_PROPERTY) {
+            const obj = this.getObjectById(op.object)
+            if(!obj) return false
+        }
+        return true
+    }
+
+    retryWaitBuffer() {
+        let i = 0
+        while(i < this.waitBuffer.length) {
+            const op = this.waitBuffer[i]
+            if(this.isValidOperation(op)) {
+                console.log("re-trying op",op)
+                this.process(op)
+                this.waitBuffer.splice(i,1)
+            }
+            i++
+        }
+    }
     process(op) {
         console.log(`${this.getHostId()}:processing op`,op)
+
+        if(!this.isValidOperation(op)) {
+            console.log("the operation is not valid. might be in the future")
+            this.waitBuffer.push(op)
+            return
+        }
+
         if(op.type === EVENT_TYPES.CREATE_OBJECT) {
             const obj = {
                 _id:op.id,
@@ -36,6 +64,7 @@ class ObjectSyncProtocol {
             this.objs[obj._id] = obj
 
             this.fire(op)
+            this.retryWaitBuffer()
             return obj._id
         }
         if(op.type === EVENT_TYPES.CREATE_PROPERTY) {

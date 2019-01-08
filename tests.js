@@ -541,7 +541,17 @@ test('tree clone',t=>{
     t.end()
 })
 
-return
+test('detect invalid operation',t => {
+    const A = new DocGraph()
+    const R = A.createObject()
+    //generate an invalid operation
+    const op = { type: CREATE_PROPERTY, object: R, name:'name', value:'foo'}
+    t.true(A.graph.isValidOperation(op))
+    op.object++
+    t.false(A.graph.isValidOperation(op))
+    t.end()
+})
+
 
 test('out of order, invalid object',t => {
     const history = []
@@ -559,21 +569,67 @@ test('out of order, invalid object',t => {
     //now mess up the history. swap the two entries
     history.reverse()
     const C = new DocGraph()
+    t.false(C.graph.isValidOperation(history[0]))
     history.forEach(e => C.process(e))
     t.equals(C.getPropertyValue(R,'name'),'foo')
 
     t.end()
 })
 
+return
 
 //create array, create object, insert object into array
 test('array object causality',t => {
+    const history = []
+    const A = new DocGraph()
+    A.onChange(e => history.push(e))
+
+    const S = A.createArray()
+    const R = A.createObject()
+    A.insertElement(S,0,R)
+    t.equals(A.getArrayLength(S),1)
+
+    const B = new DocGraph()
+    history.forEach(e => B.process(e))
+    t.equals(A.getArrayLength(S),1)
+
+    //now mess up the history. swap the two entries
+    history.reverse()
+    const C = new DocGraph()
+    history.forEach(e => C.process(e))
+    t.equals(C.getArrayLength(S),1)
+    t.end()
 
 })
 
 
 //        set property to 5, set property to 4 before the 5 setter, but received later. resolve with timestamp.
 test('out of order, two property sets, last one should win',t => {
+    const history = []
+    const A = new DocGraph()
+    A.onChange(e => history.push(e))
+
+    const R = A.createObject()
+    A.createProperty(R,'name','name')
+    A.setProperty(R,'name','foo')
+    A.setProperty(R,'name','bar')
+    t.equals(A.getPropertyValue(R,'name'),'bar')
+    t.equals(history.length,4)
+
+
+    const B = new DocGraph()
+    history.forEach(e => B.process(e))
+    t.equals(B.getPropertyValue(R,'name'),'bar')
+
+    //now mess up the history. swap the last two entries
+    const op1 = history[2]
+    const op2 = history[3]
+    history[2] = op2
+    history[3] = op1
+    const C = new DocGraph()
+    history.forEach(e => C.process(e))
+    t.equals(B.getPropertyValue(R,'name'),'bar')
+    t.end()
 })
 
 //multiple operations come in out of order, one that can never be resolved. indicate it stays in the wait queue forever
@@ -583,6 +639,24 @@ test('completely unresolved operation',t => {
 
 //    sync receives external operation and applies it but doesn't rebroadcast it
 test('dont recurse 1',t => {
+    const A = new DocGraph({host:'A'})
+    const B = new DocGraph({host:'B'})
+    const netA = new FakeNetworkRelay(A)
+    const netB = new FakeNetworkRelay(B)
+
+    const R = A.createObject()
+    A.setPropertyValue(R,'name','foo')
+    t.equals(A.getPropertyValue(R,'name'),'foo')
+    t.equals(B.getPropertyValue(R,'name'),'foo')
+    /*
+    A creates event
+    A applies event locally
+    A sends event to network
+    network forwards event to B
+    B applies event locally
+    B fires event
+    network does not forward event back to A
+     */
 })
 
 //     sync receives external operation on network from self, don't apply it
