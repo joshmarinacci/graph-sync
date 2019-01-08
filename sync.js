@@ -65,7 +65,7 @@ class ObjectSyncProtocol {
         }
     }
     process(op) {
-        console.log(`${this.getHostId()}:processing op`,op)
+        // console.log(`${this.getHostId()}:processing op`,op)
 
         if(!this.isValidOperation(op)) {
             console.log("the operation is not valid. might be in the future")
@@ -508,6 +508,9 @@ class DocGraph {
     }
     getElementAt(id,index) {
         return this.graph.getElementAt(id,index)
+    }
+    getHostId() {
+        return this.graph.getHostId()
     }
 
 
