@@ -593,6 +593,9 @@ class DocGraph {
     hasObject(objid) {
         return this.graph.hasObject(objid)
     }
+    makeGUID() {
+        return this.graph.makeGUID()
+    }
 
 
     dumpGraph() {

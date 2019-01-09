@@ -551,6 +551,7 @@ test('coalesce',t => {
             this.graph = graph
             this.paused = false
             this.buffer = []
+            this.commands = new CommandGenerator(graph)
         }
         createProperty(objid, propname, value) {
             if(!this.paused) {
@@ -558,18 +559,18 @@ test('coalesce',t => {
             }
         }
         createObject() {
-            if(!this.paused) {
-                return this.graph.createObject()
-            }
+            return this.graph.process(this.commands.createObject())
         }
         setProperty(objid, propname, propvalue) {
-            if(!this.paused) {
-                return this.graph.setProperty(objid,propname,propvalue)
+            if(this.paused) {
+                this.buffer.push({type:SET_PROPERTY,object:objid, name:propname, value:propvalue})
+            } else {
+                this.graph.process(this.commands.setProperty(objid,propname,propvalue))
             }
-            this.buffer.push({type:SET_PROPERTY,object:objid, name:propname, value:propvalue})
         }
 
         pause() {
+            console.log("pausing")
             this.paused = true
         }
 
@@ -583,7 +584,9 @@ test('coalesce',t => {
             })
             Object.keys(b).forEach((okey) =>{
                 Object.keys(b[okey]).forEach(name=>{
-                    this.graph.setProperty(okey,name,b[okey][name])
+                    const op = this.commands.setProperty(okey,name,b[okey][name])
+                    this.graph.process(op)
+                    // this.graph.setProperty(okey,name,b[okey][name])
                 })
             })
             this.paused = false
@@ -603,6 +606,7 @@ test('coalesce',t => {
     throttle.setProperty(A,'x',101)
     throttle.setProperty(A,'x',102)
     throttle.setProperty(A,'x',103)
+    console.log("unpausing")
     throttle.unpause()
 
     history.forEach(h=>{
@@ -814,6 +818,10 @@ test('array object causality',t => {
 })
 
 return
+
+
+
+
 
 //        set property to 5, set property to 4 before the 5 setter, but received later. resolve with timestamp.
 test('out of order, two property sets, last one should win',t => {
