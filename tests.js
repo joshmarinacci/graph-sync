@@ -1,10 +1,11 @@
 const test = require('tape')
 const Sync = require('./sync.js')
-const {ObjectSyncProtocol, HistoryView, DocGraph,
+const {ObjectSyncProtocol, HistoryView, DocGraph, CommandGenerator,
     SET_PROPERTY, CREATE_OBJECT, CREATE_PROPERTY, DELETE_PROPERTY, DELETE_OBJECT,
-    CREATE_ARRAY, INSERT_ELEMENT,
+    CREATE_ARRAY, INSERT_ELEMENT, DELETE_ELEMENT,
 } = Sync
 
+/*
 function performEvent(e,graph) {
     if(e.type === CREATE_OBJECT) graph.createObject(e.id)
     if(e.type === CREATE_PROPERTY) graph.createProperty(e.object, e.name, e.value)
@@ -14,10 +15,11 @@ function performEvent(e,graph) {
     if(e.type === CREATE_ARRAY) return graph.createArray(e.id)
     if(e.type === INSERT_ELEMENT) return graph.insertElementDirect(e.object,e.after,e.value,e.entry,e.timestamp)
 }
+*/
 /*
  create object A as child of root with property x = 100
   */
-test('basic',t => {
+/*test('basic',t => {
     const sync = new DocGraph()
     const root = sync.createObject()
     sync.createProperty(root,'id','root')
@@ -76,14 +78,14 @@ test('array access',t => {
     t.deepEquals(sync.dumpGraph()[R],[B])
     t.end()
 })
-
+*/
 
 /*
  * create object A with property x = 100
  * set x to 200
  * dump the history. shows create object, create prop, set prop
  */
-test('history', t => {
+/*test('history', t => {
     const sync = new DocGraph()
     const history = new HistoryView(sync)
     const A = sync.createObject()
@@ -105,7 +107,7 @@ test('history', t => {
 
     t.end()
 })
-
+*/
 /*
 user A create object R with R.x = 100
 sync
@@ -113,7 +115,7 @@ user B sets R.x to 200
 sync
 user A can see R.x = 200
 */
-test('sync', t => {
+/*test('sync', t => {
     const A = new DocGraph({host:'A'})
     const B = new DocGraph({host:'B'})
 
@@ -149,7 +151,7 @@ test('sync', t => {
 
     t.end()
 })
-
+*/
 
 /*
 create object R with R.x = 100
@@ -160,112 +162,277 @@ check
 redo it
 check
 
+
+undo queue has a current position.
+actually undoing an operation requires adding an operation to it's inverse
+this should not affect the current position
+adding a new operation, not part of the undo queue, chops the history and moves position to the end
+
+insert:   a                  0
+insert:   a,b                1
+insert:   a,b,c              2
+undo:     a,b,c,C            1
+undo:     a,b,c,C,B          0
+insert:   a,b,c,C,B,d        5
+
 */
 
+function short(op) {
+    let str = op.type + ' '
+    if(op.name) {
+        str += op.name + "=" + op.value
+    }
+    return str
+}
 test('undo',t => {
     class UndoQueue {
         constructor(graph) {
             this.graph = graph
             this.history = []
-            this.current = 0
-            graph.onChange((e)=>{
-                this.current++
-                if(e.type === CREATE_OBJECT) {
-                    this.history.push({
-                        type:e.type,
-                        object:e.object
-                    })
-                    return
-                }
-                if(e.type === CREATE_PROPERTY) {
-                    this.history.push({
-                        type:e.type,
-                        object:e.object,
-                        name:e.name,
-                        value:e.value
-                    })
-                    return
-                }
-                if(e.type === SET_PROPERTY) {
-                    this.history.push({
-                        id:Math.random(),
-                        type: e.type,
-                        object: e.object,
-                        name: e.name,
-                        oldValue: this.findLastPropertyValue(e.object, e.name),
-                        newValue: e.value
-                    })
-                }
-            })
+            this.current = -1
+            this.commands = new CommandGenerator(graph)
+        }
+
+        submit(op) {
+            console.log("appending",short(op))
+            this.history.push(op)
+            this.current = this.history.length-1
+        }
+        canUndo() {
+            return this.current > 0
+        }
+        canRedo() {
+            return this.current < this.history.length-1
         }
         undo() {
-            this.current--
             const last = this.history[this.current]
+            this.current--
+            console.log("undoing",short(last))
             if(last.type === SET_PROPERTY) {
-                this.graph.setProperty(last.object,last.name, last.oldValue)
+                const op = {
+                    type: SET_PROPERTY,
+                    host: this.graph.getHostId(),
+                    timestamp: Date.now(),
+                    object: last.object,
+                    name: last.name,
+                    value: last.prevValue,
+                }
+                this.graph.process(op)
+                return
+            }
+            if(last.type === CREATE_PROPERTY) {
+                const op = {
+                    type: DELETE_PROPERTY,
+                    host: this.graph.getHostId(),
+                    timestamp: Date.now(),
+                    object: last.object,
+                    name: last.name,
+                }
+                this.graph.process(op)
+                return
+            }
+            if(last.type === CREATE_OBJECT) {
+                const op = {
+                    type: DELETE_OBJECT,
+                    host: this.graph.getHostId(),
+                    timestamp: Date.now(),
+                    id: last.id,
+                }
+                this.graph.process(op)
+                return
+            }
+            if(last.type === INSERT_ELEMENT) {
+                const op = {
+                    type: DELETE_ELEMENT,
+                    host: this.graph.getHostId(),
+                    timestamp: Date.now(),
+                    array: last.array,
+                    entry: last.entryid
+                }
+                this.graph.process(op)
                 return
             }
             throw new Error(`undo for type not supported: ${last.type}`)
         }
         redo() {
+            this.current++
             const last = this.history[this.current]
+            console.log("redoin",this.current,last.type,last.name,'=',last.value)
             if(last.type === SET_PROPERTY) {
-                this.graph.setProperty(last.object,last.name,last.oldValue)
+                const op = {
+                    type: last.type,
+                    host: last.host,
+                    timestamp: Date.now(),
+                    object: last.object,
+                    name: last.name,
+                    value: last.value
+                }
+                this.graph.process(op)
+                return
+            }
+            if(last.type === CREATE_PROPERTY) {
+                const op = {
+                    type: last.type,
+                    host: last.host,
+                    timestamp: Date.now(),
+                    object: last.object,
+                    name: last.name,
+                    value: last.value
+                }
+                this.graph.process(op)
+                return
+            }
+            if(last.type === CREATE_OBJECT) {
+                const op = {
+                    type: last.type,
+                    host: last.host,
+                    timestamp: Date.now(),
+                    id: last.id,
+                }
+                this.graph.process(op)
+                return
+            }
+            if(last.type === INSERT_ELEMENT) {
+                console.log("redoing",last)
+                const op = {
+                    type: last.type,
+                    host: last.host,
+                    timestamp: Date.now(),
+                    array: last.array,
+                    value: last.value,
+                    entryid: this.graph.makeGUID(),
+                    prev: -1,
+                }
+                this.graph.process(op)
                 return
             }
             throw new Error(`redo for type not supported: ${last.type}`)
         }
-        findLastPropertyValue(objid,propname) {
-            for(let i=this.history.length-1; i>=0; i--) {
-                const h = this.history[i]
-                if(h.object === objid && h.name === propname) {
-                    if(h.type === SET_PROPERTY) return h.newValue
-                    if(h.type === CREATE_PROPERTY) return h.value
-                }
-            }
-            console.error(`could not find history entry for property ${objid}:${propname}`)
-            return null
-        }
+
         dump() {
-            return this.history.map(h=>{
-                const entry = {
-                    type:h.type
-                }
-                if(h.type === CREATE_PROPERTY) {
-                    entry.name = h.name
-                    entry.value = h.value
-                }
-                if(h.type === SET_PROPERTY) {
-                    entry.name = h.name
-                    entry.oldValue = h.oldValue
-                    entry.newValue = h.newValue
-                }
-                return entry
-            })
+            return this.history.map((op,i) => i+" " + op.type + " " + op.name + " => " + op.value)
         }
     }
 
-    const sync = new DocGraph({host:'doc'})
-    const undoqueue = new UndoQueue(sync)
+    const graph = new ObjectSyncProtocol({host:'doc'})
+    const doc = new CommandGenerator(graph,{host:'doc'})
+    const undoqueue = new UndoQueue(graph)
 
-    const R = sync.createObject()
-    sync.createProperty(R,'x',100)
-    sync.setProperty(R,'x',200)
-    t.deepEquals(undoqueue.dump(),[
-        {type:CREATE_OBJECT},
-        {type:CREATE_PROPERTY,name:'x',value:100},
-        {type:SET_PROPERTY,name:'x',oldValue:100, newValue:200},
-    ])
+    //create R
+    const cmd = doc.createObject()
+    graph.process(cmd)
+    undoqueue.submit(cmd)
+    t.false(undoqueue.canUndo())
+    const R = cmd.id
+    //X <= 100
+    const cmd2 = doc.createProperty(R,'x',100)
+    graph.process(cmd2)
+    undoqueue.submit(cmd2)
+    //X <= 200
+    const cmd3 = doc.setProperty(R,'x',200)
+    cmd3.prevValue = 100
+    graph.process(cmd3)
+    undoqueue.submit(cmd3)
+    t.equals(graph.getPropertyValue(R,'x'),200)
+    t.true(undoqueue.canUndo())
+    t.false(undoqueue.canRedo())
 
-    t.equals(sync.getPropertyValue(R,'x'),200)
 
     undoqueue.undo()
-    t.equals(sync.getPropertyValue(R,'x'),100)
+    t.true(undoqueue.canUndo())
+    t.true(undoqueue.canRedo())
+    t.equals(graph.getPropertyValue(R,'x'),100)
+
     undoqueue.redo()
-    t.equals(sync.getPropertyValue(R,'x'),200)
+    t.true(undoqueue.canUndo())
+    t.false(undoqueue.canRedo())
+    t.equals(graph.getPropertyValue(R,'x'),200)
+    t.true(graph.hasPropertyValue(R,'x'))
+    t.true(graph.hasObject(R))
+
+
+    undoqueue.undo() //undo 200
+    undoqueue.undo() //undo 100, create X
+    t.false(graph.hasPropertyValue(R,'x'))
+    undoqueue.undo() //undo create R
+    t.false(graph.hasObject(R))
+    t.false(undoqueue.canUndo())
+    t.true(undoqueue.canRedo())
+    undoqueue.redo() //redo create R
+    t.true(graph.hasObject(R))
+
+    //create y
+    const cmd4 = doc.createProperty(R,'y',200)
+    graph.process(cmd4)
+    undoqueue.submit(cmd4)
+    t.true(undoqueue.canUndo())
+    t.false(undoqueue.canRedo()) //no more redo. the redo for x is gone now
+    t.false(graph.hasPropertyValue(R,'x'))
+    t.true(graph.hasPropertyValue(R,'y'))
+
+
+
+    console.log('=========')
+    //create array CHILDREN
+    const cmd10 = doc.createArray()
+    graph.process(cmd10)
+    undoqueue.submit(cmd10)
+    const C = cmd10.id
+    t.equals(graph.getArrayLength(C),0)
+
+    //insert R into children
+    const cmd11 = doc.insertElement(C,0,R)
+    graph.process(cmd11)
+    undoqueue.submit(cmd11)
+
+    //create T with y = 300
+    const cmd12 = doc.createObject()
+    graph.process(cmd12)
+    undoqueue.submit(cmd12)
+    const T = cmd12.id
+    const cmd13 = doc.createProperty(T,'y',300)
+    graph.process(cmd13)
+    undoqueue.submit(cmd13)
+
+    //insert T into children before R
+    const cmd14 = doc.insertElement(C,0,T)
+    graph.process(cmd14)
+    undoqueue.submit(cmd14)
+
+    //validate children
+    t.equals(graph.getArrayLength(C),2)
+    //undo insert T
+    undoqueue.undo()
+    //validate children
+    t.equals(graph.getArrayLength(C),1)
+    //undo create T.y
+    undoqueue.undo()
+    t.false(graph.hasPropertyValue(T,'y'))
+    t.equals(graph.getArrayLength(C),1)
+    //undo create
+    t.true(graph.hasObject(T))
+    undoqueue.undo()
+    t.false(graph.hasObject(T))
+
+    //undo insert R
+    undoqueue.undo()
+    //validate children
+    t.equals(graph.getArrayLength(C),0)
+    //redo twice
+    undoqueue.redo()
+    t.equals(graph.getArrayLength(C),1)
+    undoqueue.redo()
+    //validate children again
+    t.equals(graph.getArrayLength(C),1)
+    undoqueue.redo()
+    undoqueue.redo()
+    t.equals(graph.getArrayLength(C),2)
+    console.log(graph.dumpGraph())
+
     t.end()
 })
 
+return
 
 /*
  * tree B follows changes to tree A. Add, set, delete some objects. Confirm tree B is still valid.

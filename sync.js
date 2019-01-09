@@ -228,6 +228,10 @@ class ObjectSyncProtocol {
         return this.objs[objid]
     }
 
+    hasObject(objid) {
+        return typeof this.objs[objid] !== 'undefined'
+    }
+
 
     /*
     createArray(arrid) {
@@ -475,9 +479,83 @@ class ObjectSyncProtocol {
     }
 }
 
+class CommandGenerator {
+    constructor(graph, settings) {
+        this.graph = graph
+    }
+    createObject() {
+        const op = {
+            type: EVENT_TYPES.CREATE_OBJECT,
+            host: this.graph.getHostId(),
+            timestamp:Date.now(),
+            id: this.graph.makeGUID(),
+        }
+        return op
+    }
+    createProperty(id,name,value){
+        const op = {
+            type: EVENT_TYPES.CREATE_PROPERTY,
+            host: this.graph.getHostId(),
+            timestamp:Date.now(),
+            object: id,
+            name: name,
+            value: value
+        }
+        return op
+    }
+    setProperty(id, name, value) {
+        const op = {
+            type: EVENT_TYPES.SET_PROPERTY,
+            host: this.graph.getHostId(),
+            timestamp:Date.now(),
+            object: id,
+            name: name,
+            value: value
+        }
+        return op
+    }
+
+
+    createArray() {
+        const op = {
+            type: EVENT_TYPES.CREATE_ARRAY,
+            host: this.graph.getHostId(),
+            timestamp:Date.now(),
+            id: this.graph.makeGUID(),
+        }
+        return op
+    }
+
+    insertElement(arrid, index, elementid) {
+        const op = {
+            type: EVENT_TYPES.INSERT_ELEMENT,
+            host: this.graph.getHostId(),
+            timestamp:Date.now(),
+            array:arrid,
+            value:elementid,
+            entryid: this.graph.makeGUID(),
+            prev: -1,
+        }
+        if(index > 0) {
+            op.prev = this.graph.getObjectById(arrid)._elements[index - 1]._id
+        }
+        return op
+    }
+    removeElement(arrid, index) {
+        const op = {
+            type: EVENT_TYPES.DELETE_ELEMENT,
+            host: this.graph.getHostId(),
+            timestamp:Date.now(),
+            array:arrid,
+        }
+        op.entry = this.graph.getObjectById(arrid)._elements[index]._id
+        return op
+    }
+}
 class DocGraph {
     constructor(settings) {
         this.graph = new ObjectSyncProtocol(settings)
+        this.commands = new CommandGenerator(settings)
     }
 
     onChange(cb) {
@@ -512,6 +590,9 @@ class DocGraph {
     getHostId() {
         return this.graph.getHostId()
     }
+    hasObject(objid) {
+        return this.graph.hasObject(objid)
+    }
 
 
     dumpGraph() {
@@ -519,36 +600,17 @@ class DocGraph {
     }
 
     createObject() {
-        const op = {
-            type: EVENT_TYPES.CREATE_OBJECT,
-            host: this.graph.getHostId(),
-            timestamp:Date.now(),
-            id: this.graph.makeGUID(),
-        }
+        const op = this.commands.createObject()
         return this.graph.process(op)
     }
 
     createProperty(id, name, value) {
-        const op = {
-            type: EVENT_TYPES.CREATE_PROPERTY,
-            host: this.graph.getHostId(),
-            timestamp:Date.now(),
-            object: id,
-            name: name,
-            value: value
-        }
+        const op = this.commands.createProperty(id,name,value)
         return this.graph.process(op)
     }
 
     setProperty(id, name, value) {
-        const op = {
-            type: EVENT_TYPES.SET_PROPERTY,
-            host: this.graph.getHostId(),
-            timestamp:Date.now(),
-            object: id,
-            name: name,
-            value: value
-        }
+        const op = this.commands.setProperty(id,name,value)
         return this.graph.process(op)
     }
 
@@ -572,38 +634,16 @@ class DocGraph {
     }
 
     createArray() {
-        const op = {
-            type: EVENT_TYPES.CREATE_ARRAY,
-            host: this.graph.getHostId(),
-            timestamp:Date.now(),
-            id: this.graph.makeGUID(),
-        }
+        const op = this.commands.createArray()
         return this.graph.process(op)
     }
 
     insertElement(arrid, index, elementid) {
-        const op = {
-            type: EVENT_TYPES.INSERT_ELEMENT,
-            host: this.graph.getHostId(),
-            timestamp:Date.now(),
-            array:arrid,
-            value:elementid,
-            entryid: this.graph.makeGUID(),
-            prev: -1,
-        }
-        if(index > 0) {
-            op.prev = this.graph.getObjectById(arrid)._elements[index - 1]._id
-        }
+        const op = this.commands.insertElement(arrid,index,elementid)
         return this.graph.process(op)
     }
     removeElement(arrid, index) {
-        const op = {
-            type: EVENT_TYPES.DELETE_ELEMENT,
-            host: this.graph.getHostId(),
-            timestamp:Date.now(),
-            array:arrid,
-        }
-        op.entry = this.graph.getObjectById(arrid)._elements[index]._id
+        const op = this.commands.removeElement(arrid,index)
         return this.graph.process(op)
     }
 
@@ -637,6 +677,7 @@ class HistoryView {
 module.exports.ObjectSyncProtocol = ObjectSyncProtocol
 module.exports.DocGraph = DocGraph
 module.exports.HistoryView = HistoryView
+module.exports.CommandGenerator = CommandGenerator
 Object.keys(EVENT_TYPES).forEach(key => {
     module.exports[key] = EVENT_TYPES[key]
 })
