@@ -555,7 +555,7 @@ class CommandGenerator {
 class DocGraph {
     constructor(settings) {
         this.graph = new ObjectSyncProtocol(settings)
-        this.commands = new CommandGenerator(settings)
+        this.commands = new CommandGenerator(this.graph,settings)
     }
 
     onChange(cb) {

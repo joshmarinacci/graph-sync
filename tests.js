@@ -19,7 +19,7 @@ function performEvent(e,graph) {
 /*
  create object A as child of root with property x = 100
   */
-/*test('basic',t => {
+test('basic',t => {
     const sync = new DocGraph()
     const root = sync.createObject()
     sync.createProperty(root,'id','root')
@@ -78,14 +78,14 @@ test('array access',t => {
     t.deepEquals(sync.dumpGraph()[R],[B])
     t.end()
 })
-*/
+
 
 /*
  * create object A with property x = 100
  * set x to 200
  * dump the history. shows create object, create prop, set prop
  */
-/*test('history', t => {
+test('history', t => {
     const sync = new DocGraph()
     const history = new HistoryView(sync)
     const A = sync.createObject()
@@ -107,7 +107,7 @@ test('array access',t => {
 
     t.end()
 })
-*/
+
 /*
 user A create object R with R.x = 100
 sync
@@ -115,7 +115,7 @@ user B sets R.x to 200
 sync
 user A can see R.x = 200
 */
-/*test('sync', t => {
+test('sync', t => {
     const A = new DocGraph({host:'A'})
     const B = new DocGraph({host:'B'})
 
@@ -151,7 +151,7 @@ user A can see R.x = 200
 
     t.end()
 })
-*/
+
 
 /*
 create object R with R.x = 100
@@ -432,7 +432,6 @@ test('undo',t => {
     t.end()
 })
 
-return
 
 /*
  * tree B follows changes to tree A. Add, set, delete some objects. Confirm tree B is still valid.
