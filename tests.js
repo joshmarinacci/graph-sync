@@ -734,24 +734,33 @@ test('invalid property setting',t => {
 
 // create tree, sync new tree from the original by replaying history
 test('tree clone',t=>{
-    const history = []
-    let historyCount = 0
     const sync = new DocGraph()
-    sync.onChange((e)=> {
-        historyCount++
-        history.push({event:e,count:historyCount})
-    })
     const R = sync.createObject()
     sync.createProperty(R,'id','R')
     sync.createProperty(R,'x',100)
     sync.setProperty(R,'x',200)
 
     t.deepEquals(sync.dumpGraph(),{ R: { id:'R', x:200 }})
+    t.equals(sync.graph.waitBuffer.length,0)
 
     const sync2 = new DocGraph()
-    history.forEach(e => sync2.process(e.event))
-
+    //play back history to load it up
+    sync.getHistory().forEach(op => sync2.process(op))
     t.deepEquals(sync2.dumpGraph(),{ R: { id:'R', x:200 }})
+    t.equals(sync2.graph.waitBuffer.length,0)
+
+    //play back history again, confirm that it rejects the changes since it already has them
+    sync.getHistory().forEach(op => sync2.process(op))
+    t.deepEquals(sync2.dumpGraph(),{ R: { id:'R', x:200 }})
+    t.equals(sync2.graph.waitBuffer.length,0)
+
+    const sync3 = new DocGraph()
+    //add the op to create R
+    sync3.process(sync.graph.historyBuffer[0])
+    //sync in the rest of the history
+    sync.getHistory().forEach(op => sync3.process(op))
+    t.deepEquals(sync3.dumpGraph(),{ R: { id:'R', x:200 }})
+    t.equals(sync3.graph.waitBuffer.length,0)
 
     t.end()
 })

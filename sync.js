@@ -18,6 +18,7 @@ class ObjectSyncProtocol {
         this.listeners = []
         this.host = settings.host || this.makeGUID()
         this.waitBuffer = []
+        this.historyBuffer = []
     }
     makeGUID() {
         return Math.floor(Math.random()*100000000) + ""
@@ -72,6 +73,8 @@ class ObjectSyncProtocol {
             this.waitBuffer.push(op)
             return
         }
+
+        this.historyBuffer.push(op)
 
         if(op.type === EVENT_TYPES.CREATE_OBJECT) {
             const obj = {
@@ -449,6 +452,10 @@ class ObjectSyncProtocol {
         return this.getObjectById(objid).hasOwnProperty(key)
     }
 
+    getHistory() {
+        return this.historyBuffer.slice()
+    }
+
     dumpGraph() {
         const graph = {}
         Object.keys(this.objs).forEach(key => {
@@ -648,6 +655,9 @@ class DocGraph {
     removeElement(arrid, index) {
         const op = this.commands.removeElement(arrid,index)
         return this.graph.process(op)
+    }
+    getHistory() {
+        return this.graph.getHistory()
     }
 
 }
