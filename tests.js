@@ -190,7 +190,7 @@ test('undo',t => {
             this.graph = graph
             this.history = []
             this.current = -1
-            this.commands = new CommandGenerator(graph)
+            // this.commands = new CommandGenerator(graph)
         }
 
         submit(op) {
