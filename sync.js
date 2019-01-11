@@ -422,6 +422,10 @@ class ObjectSyncProtocol {
     onChange(cb) {
         this.listeners.push(cb)
     }
+    offChange(cb) {
+        const n = this.listeners.indexOf(cb)
+        if(n >= 0) this.listeners.splice(n,1)
+    }
     fire(event) {
         this.listeners.forEach(cb => cb(event))
     }
@@ -449,7 +453,9 @@ class ObjectSyncProtocol {
         return obj[key]
     }
     hasPropertyValue(objid,key) {
-        return this.getObjectById(objid).hasOwnProperty(key)
+        const obj = this.getObjectById(objid)
+        if(obj) return obj.hasOwnProperty(key)
+        return false
     }
 
     getHistory() {
@@ -568,9 +574,16 @@ class DocGraph {
     onChange(cb) {
         return this.graph.onChange(cb)
     }
+    offChange(cb) {
+        return this.graph.offChange(cb)
+    }
 
     process(op) {
         return this.graph.process(op)
+    }
+
+    getObjectById(id) {
+        return this.graph.getObjectById(id)
     }
 
     getObjectByProperty(key, value) {
