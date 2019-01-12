@@ -612,6 +612,7 @@ test('coalesce',t => {
     history.forEach(h=>{
         delete h.host
         delete h.timestamp
+        delete h.uuid
     })
     t.deepEquals(history,
         [
