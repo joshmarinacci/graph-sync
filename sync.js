@@ -362,7 +362,10 @@ class CommandGenerator {
     removeElement(arrid, index) {
         const op = this.createOp(EVENT_TYPES.DELETE_ELEMENT)
         op.array = arrid
-        op.entry = this.graph.getObjectById(arrid)._elements[index]._id
+        const entry = this.graph.getObjectById(arrid)._elements[index]
+        op.entry = entry._id
+        op.value = entry._value
+        op.index = index
         return op
     }
 }
