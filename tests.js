@@ -1000,13 +1000,14 @@ function toObject(doc,id) {
     return obj
 }
 
-function toArray(doc,arrid,depth) {
+function toArray(doc,arrid) {
     const arr = []
     const len = doc.getArrayLength(arrid)
     for(let i=0; i<len; i++) {
         const id = doc.getElementAt(arrid,i)
         arr[i] = toObject(doc,id)
     }
+    // console.log("make array",arr)
     return arr
 }
 
@@ -1017,9 +1018,14 @@ function makeStandardArrayTest(doc) {
         return o
     }
     const R = doc.createArray()
-    doc.insertElement(R,0,obj('X'))
-    doc.insertElement(R,0,obj('Y'))
-    doc.insertElement(R,0,obj('Z'))
+    const X = obj('X')
+    doc.insertElement(R,0,X)
+    const Y = obj('Y')
+    doc.insertElement(R,1,Y)
+    const Z = obj('Z')
+    doc.insertElement(R,2,Z)
+    console.log(doc.graph.objs)
+    console.log(toArray(doc,R))
     return R
 }
 
@@ -1028,8 +1034,8 @@ test('delete element',(t) =>{
     const R = makeStandardArrayTest(doc)
     t.equal(doc.getArrayLength(R),3)
     const elem = doc.getElementAt(R,0)
-    console.log("found element",elem)
-    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'XYZ')
+    doc.removeElement(R,0)
+    t.equal(toArray(doc,R).map(e => e.name).join(""),'YZ')
     t.end()
 })
 
@@ -1037,9 +1043,9 @@ test('delete element',(t) =>{
 test('move element to front',t=>{
     const doc = new DocGraph({host:'A'})
     const R = makeStandardArrayTest(doc)
-    const Z = doc.getElementAt(R,2)
-    doc.removeElement(R,2)
-    doc.insertElement(R,0,Z)
+    const Z = doc.removeElement(R,2)
+    t.equal(toObject(doc,Z).name,'Z')
+    doc.insertAfter(R,null,Z)
     t.equal(toArray(doc,R,1).map(e => e.name).join(""),'ZXY')
     t.end()
 })
@@ -1047,25 +1053,40 @@ test('move element to front',t=>{
 test('move element to back',t => {
     const doc = new DocGraph({host:'A'})
     const R = makeStandardArrayTest(doc)
-    const Z = doc.getElementAt(R,0)
+    const X = doc.getElementAt(R,0)
+    const Z = doc.getElementAt(R,2)
     doc.removeElement(R,0)
-    doc.insertElement(R,2,Z)
-    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'YZX')
+    doc.insertAfter(R,Z,X)
+    t.equal(toArray(doc,R).map(e => e.name).join(""),'YZX')
     t.end()
 })
 test('copy element to front',t => {
     const doc = new DocGraph({host:'A'})
     const R = makeStandardArrayTest(doc)
     const Z = doc.getElementAt(R,2)
-    doc.insertElement(R,0,Z)
-    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'ZXYZ')
+    doc.insertAfter(R,null,Z)
+    t.equal(toArray(doc,R).map(e => e.name).join(""),'ZXYZ')
     t.end()
 })
 test('copy element to back',t => {
     const doc = new DocGraph({host:'A'})
     const R = makeStandardArrayTest(doc)
-    const E = doc.getElementAt(R,0)
-    doc.insertElement(R,2,E)
-    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'XYZX')
+    const X = doc.getElementAt(R,0)
+    const Z = doc.getElementAt(R,2)
+    doc.insertAfter(R,Z,X)
+    t.equal(toArray(doc,R).map(e => e.name).join(""),'XYZX')
     t.end()
+})
+test('delete w/ duplicates start',t => {
+    const doc = new DocGraph({host:'A'})
+    const R = makeStandardArrayTest(doc)
+    const X = doc.getElementAt(R,0)
+    const Z = doc.getElementAt(R,2)
+    doc.insertAfter(R,Z,X)
+    t.equal(toArray(doc,R).map(e => e.name).join(""),'XYZX')
+    doc.removeElement(R,0)
+    t.equal(toArray(doc,R).map(e => e.name).join(""),'YZX')
+    doc.removeElement(R,2)
+    t.equal(toArray(doc,R).map(e => e.name).join(""),'YZ')
+    return t.end()
 })

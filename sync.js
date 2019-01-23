@@ -190,12 +190,13 @@ class ObjectSyncProtocol {
         }
 
         if(op.type === EVENT_TYPES.DELETE_ELEMENT) {
+            // console.log("processing",op)
             const arr = this.getObjectById(op.array)
             const elem = arr._elements.find(elem => elem._id === op.entry)
             elem._tombstone = true
             // console.log("final array is",arr)
             this.fire(op)
-            return
+            return op.value
         }
 
 
@@ -359,10 +360,38 @@ class CommandGenerator {
         }
         return op
     }
+    insertAfter(arrid, targetid, objid) {
+        const op = this.createOp(EVENT_TYPES.INSERT_ELEMENT)
+        op.array = arrid
+        op.value = objid
+        op.entryid = this.graph.makeGUID()
+        op.prev = -1
+        // console.log("inserting after target",targetid)
+        if(targetid) {
+            const arr = this.graph.getObjectById(arrid)
+            op.prev = arr._elements.find(e => e._value === targetid)._id
+        }
+        return op
+    }
     removeElement(arrid, index) {
         const op = this.createOp(EVENT_TYPES.DELETE_ELEMENT)
         op.array = arrid
-        const entry = this.graph.getObjectById(arrid)._elements[index]
+        const arr = this.graph.getObjectById(arrid)
+        let entry = null
+        let count = 0
+        let n = 0
+        while(true) {
+            entry = arr._elements[n]
+            if(count === index) break
+            n++
+            if(entry._tombstone === true) {
+                console.log("deleted skip it")
+            } else {
+                count++
+            }
+        }
+
+        // const entry = this.graph.getObjectById(arrid)._elements[index]
         op.entry = entry._id
         op.value = entry._value
         op.index = index
@@ -467,6 +496,10 @@ class DocGraph {
 
     insertElement(arrid, index, elementid) {
         const op = this.commands.insertElement(arrid,index,elementid)
+        return this.graph.process(op)
+    }
+    insertAfter(arrid, targetid, objid) {
+        const op = this.commands.insertAfter(arrid,targetid,objid)
         return this.graph.process(op)
     }
     removeElement(arrid, index) {
