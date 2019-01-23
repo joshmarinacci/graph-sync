@@ -827,14 +827,13 @@ test('array object causality',t => {
 
 })
 
-return
-
 
 
 
 
 //        set property to 5, set property to 4 before the 5 setter, but received later. resolve with timestamp.
 test('out of order, two property sets, last one should win',t => {
+    return t.end()
     const history = []
     const A = new DocGraph()
     A.onChange(e => history.push(e))
@@ -864,11 +863,12 @@ test('out of order, two property sets, last one should win',t => {
 
 //multiple operations come in out of order, one that can never be resolved. indicate it stays in the wait queue forever
 test('completely unresolved operation',t => {
-
+    return t.end()
 })
 
 //    sync receives external operation and applies it but doesn't rebroadcast it
 test('dont recurse 1',t => {
+    return t.end()
     const A = new DocGraph({host:'A'})
     const B = new DocGraph({host:'B'})
     const netA = new FakeNetworkRelay(A)
@@ -891,6 +891,7 @@ test('dont recurse 1',t => {
 
 //     sync receives external operation on network from self, don't apply it
 test('dont recurse 2',t => {
+    return t.end()
 })
 
 
@@ -906,6 +907,7 @@ test('dont recurse 2',t => {
     conflict is resolved by B having a slightly later timestamp than A
  */
 test('array conflict resolution',t=>{
+    return t.end()
     const Ahistory = []
     const Bhistory = []
 
@@ -988,3 +990,82 @@ test('array conflict resolution',t=>{
     t.end()
 })
 
+
+
+function toObject(doc,id) {
+    const obj = {}
+    doc.getPropertiesForObject(id).forEach(key => {
+        obj[key] = doc.getPropertyValue(id,key)
+    })
+    return obj
+}
+
+function toArray(doc,arrid,depth) {
+    const arr = []
+    const len = doc.getArrayLength(arrid)
+    for(let i=0; i<len; i++) {
+        const id = doc.getElementAt(arrid,i)
+        arr[i] = toObject(doc,id)
+    }
+    return arr
+}
+
+function makeStandardArrayTest(doc) {
+    function obj(name) {
+        const o = doc.createObject()
+        doc.createProperty(o,'name',name)
+        return o
+    }
+    const R = doc.createArray()
+    doc.insertElement(R,0,obj('X'))
+    doc.insertElement(R,0,obj('Y'))
+    doc.insertElement(R,0,obj('Z'))
+    return R
+}
+
+test('delete element',(t) =>{
+    const doc = new DocGraph({host:'A'})
+    const R = makeStandardArrayTest(doc)
+    t.equal(doc.getArrayLength(R),3)
+    const elem = doc.getElementAt(R,0)
+    console.log("found element",elem)
+    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'XYZ')
+    t.end()
+})
+
+
+test('move element to front',t=>{
+    const doc = new DocGraph({host:'A'})
+    const R = makeStandardArrayTest(doc)
+    const Z = doc.getElementAt(R,2)
+    doc.removeElement(R,2)
+    doc.insertElement(R,0,Z)
+    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'ZXY')
+    t.end()
+})
+
+test('move element to back',t => {
+    const doc = new DocGraph({host:'A'})
+    const R = makeStandardArrayTest(doc)
+    const Z = doc.getElementAt(R,0)
+    doc.removeElement(R,0)
+    doc.insertElement(R,2,Z)
+    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'YZX')
+    t.end()
+})
+test('copy element to front',t => {
+    const doc = new DocGraph({host:'A'})
+    const R = makeStandardArrayTest(doc)
+    const Z = doc.getElementAt(R,2)
+    doc.insertElement(R,0,Z)
+    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'ZXYZ')
+    t.end()
+})
+test('copy element to back',t => {
+    const doc = new DocGraph({host:'A'})
+    const R = makeStandardArrayTest(doc)
+    const E = doc.getElementAt(R,0)
+    doc.insertElement(R,2,E)
+    t.equal(toArray(doc,R,1).map(e => e.name).join(""),'XYZX')
+    t.end()
+})
