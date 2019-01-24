@@ -182,7 +182,7 @@ test('undo',t => {
         }
 
         submit(op) {
-            console.log("appending",short(op))
+            // console.log("appending",short(op))
             this.history.push(op)
             this.current = this.history.length-1
         }
@@ -195,7 +195,7 @@ test('undo',t => {
         undo() {
             const last = this.history[this.current]
             this.current--
-            console.log("undoing",short(last))
+            // console.log("undoing",short(last))
             if(last.type === SET_PROPERTY) {
                 const op = this.commands.setProperty(last.object,last.name,last.prevValue)
                 this.graph.process(op)
@@ -221,7 +221,7 @@ test('undo',t => {
         redo() {
             this.current++
             const last = this.history[this.current]
-            console.log("redoin",this.current,last.type,last.name,'=',last.value)
+            // console.log("redoin",this.current,last.type,last.name,'=',last.value)
             if(last.type === SET_PROPERTY) {
                 const op = this.commands.setProperty(last.object,last.name,last.value)
                 this.graph.process(op)
@@ -246,7 +246,7 @@ test('undo',t => {
                 return
             }
             if(last.type === INSERT_ELEMENT) {
-                console.log("redoing",last)
+                // console.log("redoing",last)
                 //TODO: this should use a real targetid instead of null
                 const op = this.commands.insertAfter(last.array,null,last.value)
                 this.graph.process(op)
@@ -318,7 +318,6 @@ test('undo',t => {
 
 
 
-    console.log('=========')
     //create array CHILDREN
     const cmd10 = doc.createArray()
     graph.process(cmd10)
@@ -373,7 +372,7 @@ test('undo',t => {
     undoqueue.redo()
     undoqueue.redo()
     t.equals(graph.getArrayLength(C),2)
-    console.log(graph.dumpGraph())
+    // console.log(graph.dumpGraph())
 
     t.end()
 })
@@ -767,7 +766,7 @@ test('array object causality',t => {
     history.reverse()
     const C = new DocGraph({host:'C'})
     history.forEach(e => C.process(e))
-    console.log(C.graph)
+    // console.log(C.graph)
     t.equals(C.getArrayLength(S),1)
     t.end()
 
@@ -970,8 +969,8 @@ function makeStandardArrayTest(doc) {
     doc.insertElement(R,1,Y)
     const Z = obj('Z')
     doc.insertElement(R,2,Z)
-    console.log(doc.graph.objs)
-    console.log(toArray(doc,R))
+    // console.log(doc.graph.objs)
+    // console.log(toArray(doc,R))
     return R
 }
 
@@ -1039,4 +1038,22 @@ test('delete w/ duplicates start',t => {
     doc.removeElement(R,2)
     t.equal(toArray(doc,R).map(e => e.name).join(""),'YZ')
     return t.end()
+})
+
+
+test('move element from array A to array B then back', t => {
+    const doc = new DocGraph()
+    const A = makeStandardArrayTest(doc)
+    const B = makeStandardArrayTest(doc)
+    const X = doc.getElementAt(A,0)
+    doc.removeElement(A,0)
+    doc.insertAfter(B,null,X)
+    t.equal(toArray(doc,A).map(e => e.name).join(""),'YZ')
+    t.equal(toArray(doc,B).map(e => e.name).join(""),'XXYZ')
+    doc.removeElement(B,0)
+    doc.insertAfter(A,null,X)
+    t.equal(toArray(doc,A).map(e => e.name).join(""),'XYZ')
+    t.equal(toArray(doc,B).map(e => e.name).join(""),'XYZ')
+    return t.end()
+
 })

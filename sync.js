@@ -117,7 +117,7 @@ class ObjectSyncProtocol {
         if(op.type === EVENT_TYPES.SET_PROPERTY) {
             const obj = this.getObjectById(op.object)
             if(!obj) return console.error(`Cannot set property ${op.name} on object ${op.object} that does not exist`)
-            if(obj[op.name] === op.value) return console.log("property already has this value, don't fire or change")
+            if(obj[op.name] === op.value) return console.warn("property already has this value, don't fire or change")
             obj[op.name] = op.value
             this.fire(op)
             return
@@ -145,7 +145,7 @@ class ObjectSyncProtocol {
                 _elements: []
             }
             if (this.objs[arr._id]) {
-                console.log("array already exists. don't fire or change")
+                console.warn("array already exists. don't fire or change")
                 return arr._id
             }
             this.objs[arr._id] = arr
@@ -160,7 +160,7 @@ class ObjectSyncProtocol {
             if (!arr) return console.error(`Cannot insert element into ${op.array} that does not exist`);
             //check if already in there. id p entryid and prev is the same
             if(arr._elements.some(e=>e._id === op.entryid && e._prev === op.prev)) {
-                console.log("already processed this insertion. don't fire or change")
+                console.warn("already processed this insertion. don't fire or change")
                 return
             }
             // console.log("inserting",op.value,'after',op.prev,'into',arr,'with id',op.entryid)
@@ -207,7 +207,7 @@ class ObjectSyncProtocol {
         }
 
 
-        console.log(`CANNOT process operation of type ${op.type}`)
+        console.error(`CANNOT process operation of type ${op.type}`)
     }
     getObjectById(objid) {
         return this.objs[objid]
@@ -389,7 +389,7 @@ class CommandGenerator {
         // console.log("inserting after target",targetid)
         if(targetid) {
             const arr = this.graph.getObjectById(arrid)
-            op.prev = arr._elements.find(e => e._value === targetid)._id
+            op.prev = arr._elements.find(e => e._value === targetid && e._tombstone === false)._id
         }
         return op
     }
@@ -408,19 +408,21 @@ class CommandGenerator {
         let n = 0
         while(true) {
             entry = arr._elements[n]
-            if(count === index) break
             n++
             if(entry._tombstone === true) {
                 console.log("deleted skip it")
-            } else {
-                count++
+                continue
             }
+
+            if(count === index) {
+                console.log("found it")
+                break
+            }
+            count++
         }
 
-        // const entry = this.graph.getObjectById(arrid)._elements[index]
         op.entry = entry._id
         op.value = entry._value
-        op.index = index
         return op
     }
 }
