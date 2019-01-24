@@ -5,20 +5,9 @@ const {ObjectSyncProtocol, HistoryView, DocGraph, CommandGenerator,
     CREATE_ARRAY, INSERT_ELEMENT, DELETE_ELEMENT,
 } = Sync
 
-/*
-function performEvent(e,graph) {
-    if(e.type === CREATE_OBJECT) graph.createObject(e.id)
-    if(e.type === CREATE_PROPERTY) graph.createProperty(e.object, e.name, e.value)
-    if(e.type === SET_PROPERTY) graph.setProperty(e.object, e.name, e.value)
-    if(e.type === DELETE_PROPERTY) graph.deleteProperty(e.object, e.name)
-    if(e.type === DELETE_OBJECT) graph.deleteObject(e.id)
-    if(e.type === CREATE_ARRAY) return graph.createArray(e.id)
-    if(e.type === INSERT_ELEMENT) return graph.insertElementDirect(e.object,e.after,e.value,e.entry,e.timestamp)
-}
-*/
-/*
- create object A as child of root with property x = 100
-  */
+
+
+// create object A as child of root with property x = 100
 test('basic',t => {
     const sync = new DocGraph()
     const root = sync.createObject()
@@ -80,11 +69,10 @@ test('array access',t => {
 })
 
 
-/*
- * create object A with property x = 100
- * set x to 200
- * dump the history. shows create object, create prop, set prop
- */
+// create object A with property x = 100
+ // set x to 200
+ // dump the history. shows create object, create prop, set prop
+
 test('history', t => {
     const sync = new DocGraph()
     const history = new HistoryView(sync)
@@ -108,13 +96,13 @@ test('history', t => {
     t.end()
 })
 
-/*
-user A create object R with R.x = 100
-sync
-user B sets R.x to 200
-sync
-user A can see R.x = 200
-*/
+
+// user A create object R with R.x = 100
+// sync
+// user B sets R.x to 200
+// sync
+// user A can see R.x = 200
+
 test('sync', t => {
     const A = new DocGraph({host:'A'})
     const B = new DocGraph({host:'B'})
@@ -153,29 +141,29 @@ test('sync', t => {
 })
 
 
-/*
-create object R with R.x = 100
-set R.x = 200
-check undo queue
-undo it
-check
-redo it
-check
+
+// create object R with R.x = 100
+// set R.x = 200
+// check undo queue
+// undo it
+// check
+// redo it
+// check
 
 
-undo queue has a current position.
-actually undoing an operation requires adding an operation to it's inverse
-this should not affect the current position
-adding a new operation, not part of the undo queue, chops the history and moves position to the end
+// undo queue has a current position.
+// actually undoing an operation requires adding an operation to it's inverse
+// this should not affect the current position
+// adding a new operation, not part of the undo queue, chops the history and moves position to the end
+//
+// insert:   a                  0
+// insert:   a,b                1
+// insert:   a,b,c              2
+// undo:     a,b,c,C            1
+// undo:     a,b,c,C,B          0
+// insert:   a,b,c,C,B,d        5
+//
 
-insert:   a                  0
-insert:   a,b                1
-insert:   a,b,c              2
-undo:     a,b,c,C            1
-undo:     a,b,c,C,B          0
-insert:   a,b,c,C,B,d        5
-
-*/
 
 function short(op) {
     let str = op.type + ' '
@@ -190,7 +178,7 @@ test('undo',t => {
             this.graph = graph
             this.history = []
             this.current = -1
-            // this.commands = new CommandGenerator(graph)
+            this.commands = new CommandGenerator(graph)
         }
 
         submit(op) {
@@ -209,46 +197,22 @@ test('undo',t => {
             this.current--
             console.log("undoing",short(last))
             if(last.type === SET_PROPERTY) {
-                const op = {
-                    type: SET_PROPERTY,
-                    host: this.graph.getHostId(),
-                    timestamp: Date.now(),
-                    object: last.object,
-                    name: last.name,
-                    value: last.prevValue,
-                }
+                const op = this.commands.setProperty(last.object,last.name,last.prevValue)
                 this.graph.process(op)
                 return
             }
             if(last.type === CREATE_PROPERTY) {
-                const op = {
-                    type: DELETE_PROPERTY,
-                    host: this.graph.getHostId(),
-                    timestamp: Date.now(),
-                    object: last.object,
-                    name: last.name,
-                }
+                const op = this.commands.deleteProperty(last.object,last.name)
                 this.graph.process(op)
                 return
             }
             if(last.type === CREATE_OBJECT) {
-                const op = {
-                    type: DELETE_OBJECT,
-                    host: this.graph.getHostId(),
-                    timestamp: Date.now(),
-                    id: last.id,
-                }
+                const op = this.commands.deleteObject(last.id)
                 this.graph.process(op)
                 return
             }
             if(last.type === INSERT_ELEMENT) {
-                const op = {
-                    type: DELETE_ELEMENT,
-                    host: this.graph.getHostId(),
-                    timestamp: Date.now(),
-                    array: last.array,
-                    entry: last.entryid
-                }
+                const op = this.commands.removeElementByEntryId(last.array,last.entryid)
                 this.graph.process(op)
                 return
             }
@@ -259,14 +223,7 @@ test('undo',t => {
             const last = this.history[this.current]
             console.log("redoin",this.current,last.type,last.name,'=',last.value)
             if(last.type === SET_PROPERTY) {
-                const op = {
-                    type: last.type,
-                    host: last.host,
-                    timestamp: Date.now(),
-                    object: last.object,
-                    name: last.name,
-                    value: last.value
-                }
+                const op = this.commands.setProperty(last.object,last.name,last.value)
                 this.graph.process(op)
                 return
             }
@@ -283,26 +240,15 @@ test('undo',t => {
                 return
             }
             if(last.type === CREATE_OBJECT) {
-                const op = {
-                    type: last.type,
-                    host: last.host,
-                    timestamp: Date.now(),
-                    id: last.id,
-                }
+                const op = this.commands.createObject()
+                op.id = last.id
                 this.graph.process(op)
                 return
             }
             if(last.type === INSERT_ELEMENT) {
                 console.log("redoing",last)
-                const op = {
-                    type: last.type,
-                    host: last.host,
-                    timestamp: Date.now(),
-                    array: last.array,
-                    value: last.value,
-                    entryid: this.graph.makeGUID(),
-                    prev: -1,
-                }
+                //TODO: this should use a real targetid instead of null
+                const op = this.commands.insertAfter(last.array,null,last.value)
                 this.graph.process(op)
                 return
             }
@@ -431,7 +377,6 @@ test('undo',t => {
 
     t.end()
 })
-
 
 /*
  * tree B follows changes to tree A. Add, set, delete some objects. Confirm tree B is still valid.
@@ -613,6 +558,7 @@ test('coalesce',t => {
         delete h.host
         delete h.timestamp
         delete h.uuid
+        delete h.seq
     })
     t.deepEquals(history,
         [
@@ -770,7 +716,7 @@ test('detect invalid operation',t => {
     const A = new DocGraph()
     const R = A.createObject()
     //generate an invalid operation
-    const op = { type: CREATE_PROPERTY, object: R, name:'name', value:'foo'}
+    const op = { type: CREATE_PROPERTY, object: R, name:'name', value:'foo', seq:-1}
     t.true(A.graph.isValidOperation(op))
     op.object++
     t.false(A.graph.isValidOperation(op))
@@ -1043,9 +989,13 @@ test('delete element',(t) =>{
 test('move element to front',t=>{
     const doc = new DocGraph({host:'A'})
     const R = makeStandardArrayTest(doc)
-    const Z = doc.removeElement(R,2)
+
+    const CMD = new CommandGenerator(doc)
+    const op1 = CMD.removeElement(R,2)
+    const Z = doc.process(op1)
     t.equal(toObject(doc,Z).name,'Z')
-    doc.insertAfter(R,null,Z)
+    const op2 = CMD.insertAfter(R,null,Z)
+    doc.process(op2)
     t.equal(toArray(doc,R,1).map(e => e.name).join(""),'ZXY')
     t.end()
 })

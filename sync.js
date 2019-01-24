@@ -11,6 +11,16 @@ const EVENT_TYPES = {
     DELETE_ARRAY:'DELETE_ARRAY',
 }
 
+
+//resolve conflict when inserting element into an array
+function isFirst(a,b) {
+    console.log("checking is first")
+    //most recent wins
+    if(a._timestamp > b._timestamp) return true
+    if(a._seq > b._seq) return true
+    return false
+}
+
 class ObjectSyncProtocol {
     constructor(settings) {
         settings = settings || {}
@@ -19,12 +29,18 @@ class ObjectSyncProtocol {
         this.host = settings.host || this.makeGUID()
         this.waitBuffer = []
         this.historyBuffer = []
+        this._seq = 0
     }
     makeGUID() {
         return Math.floor(Math.random()*100000000) + ""
     }
+    nextSeq() {
+        this._seq++
+        return this._seq
+    }
 
     isValidOperation(op) {
+        if(!op.seq) return false
         if(op.type === EVENT_TYPES.CREATE_PROPERTY) {
             const obj = this.getObjectById(op.object)
             if(!obj) return false
@@ -67,7 +83,6 @@ class ObjectSyncProtocol {
     }
     process(op) {
         // console.log(`${this.getHostId()}:processing op`,op)
-
         if(!this.isValidOperation(op)) {
             console.log("the operation is not valid. might be in the future")
             this.waitBuffer.push(op)
@@ -155,7 +170,9 @@ class ObjectSyncProtocol {
                 _value:op.value,
                 _prev:op.prev,
                 _timestamp:op.timestamp,
-                _tombstone:false
+                _seq:op.seq,
+                _host:op.host,
+                _tombstone:false,
             }
             //calculate the index of the prev
             const index = arr._elements.findIndex(e => e._id === op.prev)
@@ -163,23 +180,13 @@ class ObjectSyncProtocol {
 
             const curr = arr._elements[index+1]
             //two forms of insert
+
+
             if(curr && curr._prev === elem._prev) {
-                // console.log(this.id, "must decide", elem._id, elem._timestamp, curr._id, curr._timestamp)
-                if(elem._timestamp > curr._timestamp) {
-                    // console.log('new elem first')
+                if(isFirst(elem,curr)) {
                     arr._elements.splice(index+1,0,elem)
-                } else if(elem._timestamp < curr._timestamp) {
-                    // console.log("new elem second")
-                    arr._elements.splice(index+2,0,elem)
                 } else {
-                    // console.log("same time. go with earliest id")
-                    if(elem._id > curr._id) {
-                        // console.log('first')
-                        arr._elements.splice(index+1,0,elem)
-                    } else {
-                        // console.log("second")
-                        arr._elements.splice(index+2,0,elem)
-                    }
+                    arr._elements.splice(index+2,0,elem)
                 }
             } else {
                 arr._elements.splice(index+1,0,elem)
@@ -311,7 +318,7 @@ class ObjectSyncProtocol {
 }
 
 class CommandGenerator {
-    constructor(graph, settings) {
+    constructor(graph) {
         this.graph = graph
     }
     createOp(type) {
@@ -320,6 +327,7 @@ class CommandGenerator {
             host: this.graph.getHostId(),
             timestamp: Date.now(),
             uuid: this.graph.makeGUID(),
+            seq: this.graph.nextSeq(),
         }
     }
     createObject() {
@@ -339,6 +347,18 @@ class CommandGenerator {
         op.object = id
         op.name = name
         op.value = value
+        return op
+    }
+    deleteProperty(id,name) {
+        const op = this.createOp(EVENT_TYPES.DELETE_PROPERTY)
+        op.object = id
+        op.name = name
+        return op
+    }
+
+    deleteObject(id) {
+        const op = this.createOp(EVENT_TYPES.DELETE_OBJECT)
+        op.id = id
         return op
     }
 
@@ -371,6 +391,12 @@ class CommandGenerator {
             const arr = this.graph.getObjectById(arrid)
             op.prev = arr._elements.find(e => e._value === targetid)._id
         }
+        return op
+    }
+    removeElementByEntryId(arrid,entryid) {
+        const op = this.createOp(EVENT_TYPES.DELETE_ELEMENT)
+        op.array = arrid
+        op.entry = entryid
         return op
     }
     removeElement(arrid, index) {
@@ -449,6 +475,9 @@ class DocGraph {
     makeGUID() {
         return this.graph.makeGUID()
     }
+    nextSeq() {
+        return this.graph.nextSeq()
+    }
 
 
     dumpGraph() {
@@ -459,7 +488,6 @@ class DocGraph {
         const op = this.commands.createObject()
         return this.graph.process(op)
     }
-
     createProperty(id, name, value) {
         const op = this.commands.createProperty(id,name,value)
         return this.graph.process(op)
@@ -471,21 +499,12 @@ class DocGraph {
     }
 
     deleteProperty(id, name) {
-        const op = {
-            type: EVENT_TYPES.DELETE_PROPERTY,
-            host: this.graph.getHostId(),
-            object: id,
-            name: name,
-        }
+        const op = this.commands.deleteProperty(id,name)
         return this.graph.process(op)
     }
 
     deleteObject(id) {
-        const op = {
-            type: EVENT_TYPES.DELETE_OBJECT,
-            host: this.graph.getHostId(),
-            id: id,
-        }
+        const op = this.commands.deleteObject(id)
         return this.graph.process(op)
     }
 
