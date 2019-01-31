@@ -14,7 +14,6 @@ const EVENT_TYPES = {
 
 //resolve conflict when inserting element into an array
 function isFirst(a,b) {
-    console.log("checking is first")
     //most recent wins
     if(a._timestamp > b._timestamp) return true
     if(a._seq > b._seq) return true
@@ -179,9 +178,7 @@ class ObjectSyncProtocol {
             // console.log("index of prev is",index)
 
             const curr = arr._elements[index+1]
-            //two forms of insert
-
-
+            //three forms of insert
             if(curr && curr._prev === elem._prev) {
                 if(isFirst(elem,curr)) {
                     arr._elements.splice(index+1,0,elem)
@@ -355,20 +352,16 @@ class CommandGenerator {
         op.name = name
         return op
     }
-
     deleteObject(id) {
         const op = this.createOp(EVENT_TYPES.DELETE_OBJECT)
         op.id = id
         return op
     }
-
-
     createArray() {
         const op = this.createOp(EVENT_TYPES.CREATE_ARRAY)
         op.id = this.graph.makeGUID()
         return op
     }
-
     insertElement(arrid, index, elementid) {
         const op = this.createOp(EVENT_TYPES.INSERT_ELEMENT)
         op.array = arrid
@@ -480,7 +473,6 @@ class DocGraph {
     nextSeq() {
         return this.graph.nextSeq()
     }
-
 
     dumpGraph() {
         return this.graph.dumpGraph()
