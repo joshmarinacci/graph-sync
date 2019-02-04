@@ -331,7 +331,7 @@ class ObjectSyncProtocol {
     getObjectByProperty(key,value) {
         for(let id in this.objs) {
             const obj = this.objs[id]
-            if(obj[key].value === value) return obj._id
+            if(obj[key] && obj[key].value === value) return obj._id
         }
         return null
     }
