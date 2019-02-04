@@ -565,8 +565,8 @@ class DocGraph {
         return this.graph.dumpGraph()
     }
 
-    createObject() {
-        const op = this.commands.createObject()
+    createObject(defaults) {
+        const op = this.commands.createObject(defaults)
         return this.graph.process(op)
     }
     createProperty(id, name, value) {
