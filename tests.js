@@ -1057,7 +1057,6 @@ test('move element from array A to array B then back', t => {
 })
 
 test("set_property conflict resolution",t=>{
-    console.log("done")
     const doc = new DocGraph({host:'A'})
     const CMD = new CommandGenerator(doc)
     const O = doc.process(CMD.createObject())
@@ -1065,8 +1064,6 @@ test("set_property conflict resolution",t=>{
     t.equal(doc.getPropertyValue(O,'x'),5)
     doc.process(CMD.setProperty(O,'x',6))
     t.equal(doc.getPropertyValue(O,'x'),6)
-
-    console.log(doc.dumpGraph())
 
 
     const op7 = CMD.setProperty(O,'x',7)
@@ -1078,5 +1075,20 @@ test("set_property conflict resolution",t=>{
 
     t.equal(doc.getPropertyValue(O,'x'),7)
 
+    t.end()
+})
+
+
+test('create object with initial props',t => {
+    const doc = new DocGraph({host:'A'})
+    const CMD = new CommandGenerator(doc)
+    const O = doc.process(CMD.createObject({
+        x:4,
+        y:5
+    }))
+    doc.process(CMD.setProperty(O,'y',6))
+    console.log(doc.dumpGraph())
+    t.equal(doc.getPropertyValue(O,'x'),4)
+    t.equal(doc.getPropertyValue(O,'y'),6)
     t.end()
 })

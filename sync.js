@@ -21,11 +21,13 @@ function isFirst(a,b) {
 }
 
 function isNewer(a,b) {
-    console.log('comparing',a.timestamp,b.timestamp)
+//    console.log('comparing',a,b)
     if(a.timestamp > b.timestamp) return true
     if(a.timestamp < b.timestamp) return false
     if(a.seq > b.seq) return true
-    return false
+    if(a.seq < b.seq) return false
+    //if timestamps and seqs are same, just use the newer
+    return true
 }
 
 class ObjectSyncProtocol {
@@ -99,19 +101,7 @@ class ObjectSyncProtocol {
         this.historyBuffer.push(op)
 
         if(op.type === EVENT_TYPES.CREATE_OBJECT) {
-            const obj = {
-                _id:op.id,
-                _type:'object',
-            }
-            if(this.objs[obj._id]) {
-                console.log(`object ${obj._id} already exists. don't fire or change`)
-                return obj._id
-            }
-            this.objs[obj._id] = obj
-
-            this.fire(op)
-            this.retryWaitBuffer()
-            return obj._id
+            return this.processCreateObject(op)
         }
         if(op.type === EVENT_TYPES.CREATE_PROPERTY) {
             return this.processCreateProperty(op)
@@ -205,6 +195,33 @@ class ObjectSyncProtocol {
         console.error(`CANNOT process operation of type ${op.type}`)
     }
 
+    processCreateObject(op) {
+        const obj = {
+            _id:op.id,
+            _type:'object',
+        }
+        if(this.objs[obj._id]) {
+            console.log(`object ${obj._id} already exists. don't fire or change`)
+            return obj._id
+        }
+        this.objs[obj._id] = obj
+
+        if(op.defaults) {
+            Object.keys(op.defaults).forEach(key =>{
+                obj[key] = {
+                    value: op.defaults[key],
+                    timestamp: op.timestamp,
+                    host: op.host,
+                    seq: op.seq
+                }
+            })
+            console.log("need to apply default props")
+        }
+
+        this.fire(op)
+        this.retryWaitBuffer()
+        return obj._id
+    }
     processCreateProperty(op) {
         const obj = this.getObjectById(op.object)
         if(!obj) return console.error(`Cannot create property ${op.name} on object ${op.object} that does not exist`)
@@ -220,10 +237,10 @@ class ObjectSyncProtocol {
     processSetProperty(op) {
         const obj = this.getObjectById(op.object)
         if(!obj) return console.error(`Cannot set property ${op.name} on object ${op.object} that does not exist`)
-        //preserve value, timestamp, and hostid
         if(obj[op.name] && obj[op.name].value === op.value)
             return console.warn("property already has this value, don't fire or change")
-
+        if(!this.hasPropertyValue(op.object,op.name))
+            return console.error("trying to set a property that doesn't exist")
 
         const old_prop = obj[op.name]
         const new_prop =  {
@@ -232,11 +249,11 @@ class ObjectSyncProtocol {
             host: op.host,
             seq: op.seq,
         }
+        //only update and fire if new
         if(isNewer(new_prop,old_prop)) {
             obj[op.name] = new_prop
+            this.fire(op)
         }
-
-        this.fire(op)
     }
 
     getObjectById(objid) {
@@ -305,6 +322,7 @@ class ObjectSyncProtocol {
     getPropertyValue(objid, key) {
         const obj = this.getObjectById(objid)
         if(!obj) return console.error(`cannot get property value for object ${objid} that does not exist not exist`)
+        if(!obj[key]) return console.error(`cannot get property value for property '${key}' that does not exist on object`)
         return obj[key].value
     }
     hasPropertyValue(objid,key) {
@@ -365,9 +383,10 @@ class CommandGenerator {
             seq: this.graph.nextSeq(),
         }
     }
-    createObject() {
+    createObject(defaults) {
         const op = this.createOp(EVENT_TYPES.CREATE_OBJECT)
         op.id = this.graph.makeGUID()
+        if(defaults) op.defaults = defaults
         return op
     }
     createProperty(id,name,value){
