@@ -22,7 +22,7 @@ test('basic',t => {
     sync.createProperty(B,'id','B')
 
     const R = sync.createArray()
-    sync.setProperty(root,'children',R)
+    sync.createProperty(root,'children',R)
     sync.insertElement(R,0,A)
     sync.insertElement(R,1,B)
 
@@ -139,8 +139,6 @@ test('sync', t => {
 
     t.end()
 })
-
-
 
 // create object R with R.x = 100
 // set R.x = 200
@@ -1056,4 +1054,29 @@ test('move element from array A to array B then back', t => {
     t.equal(toArray(doc,B).map(e => e.name).join(""),'XYZ')
     return t.end()
 
+})
+
+test("set_property conflict resolution",t=>{
+    console.log("done")
+    const doc = new DocGraph({host:'A'})
+    const CMD = new CommandGenerator(doc)
+    const O = doc.process(CMD.createObject())
+    doc.process(CMD.createProperty(O,'x',5))
+    t.equal(doc.getPropertyValue(O,'x'),5)
+    doc.process(CMD.setProperty(O,'x',6))
+    t.equal(doc.getPropertyValue(O,'x'),6)
+
+    console.log(doc.dumpGraph())
+
+
+    const op7 = CMD.setProperty(O,'x',7)
+    const op8 = CMD.setProperty(O,'x',8)
+    op7.timestamp += 100
+
+    doc.process(op7)
+    doc.process(op8)
+
+    t.equal(doc.getPropertyValue(O,'x'),7)
+
+    t.end()
 })

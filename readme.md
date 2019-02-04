@@ -381,3 +381,24 @@ To keep things simple I think cut and copy will both save the ID and paste will 
 
 
 
+
+## more todos
+
+currently you can get issues when creating an object with multiple properties. the object may reach the other side of the network in an incomplete state. the usuer of the object must somehow wait until the object is ready. one solution is to have a minimum list of properties that must exist for the object to be considered complete enough.  this could be wrapped up into a reusable function.  However, given that initializing an object with a set of properties is such a common thing, it would be good to add an option to have object + property creation be an atomic operation. This would require extending the `create_object` operation to support a list of properties and initial values.  While this does mess up the pure flat style of the current system, it is far more developer friendly.
+
+it is common to set multiple properties at once. for example, when moving a rectangle around we must set both the x and y properties.  in general these properties will always be set together. how tto solve thtis? we could combine the x and y into a single complex property called position. the protocol does not deal with complex properties so the end applications would need to pack and unpack the values into a single string value. this would work.  another option is to extend the set_property operation to set multiple properties at once.  letting them be a single atomic operation.  as with create_object this ruins the pure flatness of hte protocol, but it is something developers would constantly need and should therefore be rather practical.
+
+for both of these cases where we are updating multiple values at once we must consider how this affects conflict resolution.  suppose we set properties x and y with a single operation. this operation has a host and timestamp. however the previous values of x and y have different timestamps. should we apply the new values as a single operation or should they be resolved separately. with potentially one value resolving and the other one not.  I htink htey should be treated as if the two set_properties had come in separately.  undo systems can reverse the values as a unit as long as they hold on to the original operation rather tthan trying to reverse engineer it from the current values.   the history buffer should still record this as a single operation.
+
+
+## resolving conflicts with set property
+
+if two property sets come in for the same property the newest one wins. how do we determine this in a world where packets can be delayed and operations can be done offline and synced later.  first, every operation has a timestamp. we assume that this timestamp is roughly correct, meaning it might be off by a few millesconds or even seconds, but not off by hours or days.  when a set property operation comes in we compare it with the current property value. if the current property value was set more recently than the incoming set operation, then we leave the current one. otherwise the new value applies. the host id is used to resolve conflicts in case the timestamp is identical. this implies that we must preserve the timestamp and host id of the most recent operation for every property.   Furthermore, this must be preserved when saving and reloading from disk.
+
+   
+
+
+
+
+
+

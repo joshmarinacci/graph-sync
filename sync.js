@@ -20,6 +20,14 @@ function isFirst(a,b) {
     return false
 }
 
+function isNewer(a,b) {
+    console.log('comparing',a.timestamp,b.timestamp)
+    if(a.timestamp > b.timestamp) return true
+    if(a.timestamp < b.timestamp) return false
+    if(a.seq > b.seq) return true
+    return false
+}
+
 class ObjectSyncProtocol {
     constructor(settings) {
         settings = settings || {}
@@ -106,20 +114,10 @@ class ObjectSyncProtocol {
             return obj._id
         }
         if(op.type === EVENT_TYPES.CREATE_PROPERTY) {
-            const obj = this.getObjectById(op.object)
-            if(!obj) return console.error(`Cannot create property ${op.name} on object ${op.object} that does not exist`)
-            if(obj[op.name]) return console.log("property already exists. don't fire or change")
-            obj[op.name] = op.value
-            this.fire(op)
-            return
+            return this.processCreateProperty(op)
         }
         if(op.type === EVENT_TYPES.SET_PROPERTY) {
-            const obj = this.getObjectById(op.object)
-            if(!obj) return console.error(`Cannot set property ${op.name} on object ${op.object} that does not exist`)
-            if(obj[op.name] === op.value) return console.warn("property already has this value, don't fire or change")
-            obj[op.name] = op.value
-            this.fire(op)
-            return
+            return this.processSetProperty(op)
         }
         if(op.type === EVENT_TYPES.DELETE_PROPERTY) {
             const obj = this.getObjectById(op.object)
@@ -206,6 +204,41 @@ class ObjectSyncProtocol {
 
         console.error(`CANNOT process operation of type ${op.type}`)
     }
+
+    processCreateProperty(op) {
+        const obj = this.getObjectById(op.object)
+        if(!obj) return console.error(`Cannot create property ${op.name} on object ${op.object} that does not exist`)
+        if(obj[op.name]) return console.log("property already exists. don't fire or change")
+        obj[op.name] = {
+            value: op.value,
+            timestamp: op.timestamp,
+            host: op.host,
+            seq: op.seq,
+        }
+        this.fire(op)
+    }
+    processSetProperty(op) {
+        const obj = this.getObjectById(op.object)
+        if(!obj) return console.error(`Cannot set property ${op.name} on object ${op.object} that does not exist`)
+        //preserve value, timestamp, and hostid
+        if(obj[op.name] && obj[op.name].value === op.value)
+            return console.warn("property already has this value, don't fire or change")
+
+
+        const old_prop = obj[op.name]
+        const new_prop =  {
+            value: op.value,
+            timestamp: op.timestamp,
+            host: op.host,
+            seq: op.seq,
+        }
+        if(isNewer(new_prop,old_prop)) {
+            obj[op.name] = new_prop
+        }
+
+        this.fire(op)
+    }
+
     getObjectById(objid) {
         return this.objs[objid]
     }
@@ -257,7 +290,7 @@ class ObjectSyncProtocol {
     getObjectByProperty(key,value) {
         for(let id in this.objs) {
             const obj = this.objs[id]
-            if(obj[key] === value) return obj._id
+            if(obj[key].value === value) return obj._id
         }
         return null
     }
@@ -272,7 +305,7 @@ class ObjectSyncProtocol {
     getPropertyValue(objid, key) {
         const obj = this.getObjectById(objid)
         if(!obj) return console.error(`cannot get property value for object ${objid} that does not exist not exist`)
-        return obj[key]
+        return obj[key].value
     }
     hasPropertyValue(objid,key) {
         const obj = this.getObjectById(objid)
@@ -289,7 +322,7 @@ class ObjectSyncProtocol {
         Object.keys(this.objs).forEach(key => {
             const obj = this.objs[key]
             let id = obj._id
-            if(obj.id) id = obj.id
+            if(obj.id) id = obj.id.value
             graph[id] = {}
 
             if(obj._type === 'array'){
@@ -302,12 +335,17 @@ class ObjectSyncProtocol {
             }
 
             Object.keys(obj).forEach(key => {
-                if(key === '_id' && obj.id) {
-                    graph[id]['id'] = obj.id
-                    return
+                if(key === '_id') {
+                    if(obj.id) {
+                        graph[id]['id'] = obj.id.value
+                        return
+                    } else {
+                        graph[id]['id'] = obj[key]
+                        return
+                    }
                 }
                 if(key === '_type') return
-                graph[id][key] = obj[key]
+                graph[id][key] = obj[key].value
             })
         })
         return graph
