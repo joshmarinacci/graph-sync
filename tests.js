@@ -1092,3 +1092,19 @@ test('create object with initial props',t => {
     t.equal(doc.getPropertyValue(O,'y'),6)
     t.end()
 })
+
+
+test('set two props at once',t => {
+    const doc = new DocGraph({host:'A'})
+    const CMD = new CommandGenerator(doc)
+    const O = doc.process(CMD.createObject())
+    doc.process(CMD.createProperty(O,'x',4))
+    doc.process(CMD.createProperty(O,'y',5))
+    console.log(doc.dumpGraph())
+
+    doc.process(CMD.setProperties(O,{x:9,y:9}))
+
+    t.equal(doc.getPropertyValue(O,'x'),9)
+    t.equal(doc.getPropertyValue(O,'y'),9)
+    t.end()
+})

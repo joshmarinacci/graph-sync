@@ -24,8 +24,11 @@ function isNewer(a,b) {
 //    console.log('comparing',a,b)
     if(a.timestamp > b.timestamp) return true
     if(a.timestamp < b.timestamp) return false
-    if(a.seq > b.seq) return true
-    if(a.seq < b.seq) return false
+    //compare seq if on the same host
+    if(a.host === b.host) {
+        if (a.seq > b.seq) return true
+        if (a.seq < b.seq) return false
+    }
     //if timestamps and seqs are same, just use the newer
     return true
 }
@@ -225,7 +228,7 @@ class ObjectSyncProtocol {
     processCreateProperty(op) {
         const obj = this.getObjectById(op.object)
         if(!obj) return console.error(`Cannot create property ${op.name} on object ${op.object} that does not exist`)
-        if(obj[op.name]) return console.log("property already exists. don't fire or change")
+        if(obj[op.name]) return console.log(`property already exists ${op.name}. don't fire or change`)
         obj[op.name] = {
             value: op.value,
             timestamp: op.timestamp,
@@ -237,6 +240,27 @@ class ObjectSyncProtocol {
     processSetProperty(op) {
         const obj = this.getObjectById(op.object)
         if(!obj) return console.error(`Cannot set property ${op.name} on object ${op.object} that does not exist`)
+
+        if(op.props) {
+            console.log("doing a multi-prop set")
+            let changed = false
+            Object.keys(op.props).forEach(key => {
+                const old_prop = obj[key]
+                const new_prop = {
+                    value: op.props[key],
+                    timestamp: op.timestamp,
+                    host: op.host,
+                    seq: op.seq,
+                }
+                if(isNewer(new_prop,old_prop)) {
+                    obj[key] = new_prop
+                    changed = true
+                }
+            })
+            if(changed) this.fire(op)
+            return
+        }
+
         if(obj[op.name] && obj[op.name].value === op.value)
             return console.warn("property already has this value, don't fire or change")
         if(!this.hasPropertyValue(op.object,op.name))
@@ -401,6 +425,12 @@ class CommandGenerator {
         op.object = id
         op.name = name
         op.value = value
+        return op
+    }
+    setProperties(id, props) {
+        const op = this.createOp(EVENT_TYPES.SET_PROPERTY)
+        op.object = id
+        op.props = props
         return op
     }
     deleteProperty(id,name) {
