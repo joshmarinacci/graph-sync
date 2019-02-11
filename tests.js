@@ -1108,3 +1108,15 @@ test('set two props at once',t => {
     t.equal(doc.getPropertyValue(O,'y'),9)
     t.end()
 })
+
+test('process same operation twice',t => {
+    const doc = new DocGraph()
+    const CMD = new CommandGenerator(doc)
+    const O = doc.process(CMD.createObject())
+    const op = CMD.createProperty(O,'x',99)
+    //processing same operation twice shouldn't result in to history entries
+    doc.process(op)
+    doc.process(op)
+    t.equal(doc.getHistory().length,2)
+    t.end()
+})

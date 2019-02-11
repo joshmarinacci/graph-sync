@@ -50,14 +50,14 @@ Graph Sync is not good for large text documents.  The array syncing system is
 potentially unbounded, meaning the history of your document could grow very large.
 This is made worse with lots of array manipulations (like repeatedly reordering a list or
 editing long paragraphs). There are more complex algorithms in the research
-literature which could address these deficiences, but they are not the focus of
+literature which could address these deficiencies, but they are not the focus of
 this project.
 
 The library core does not include event coalescing, undo/redo, and other features
 that you might want to build on top of the library, but there are some examples
 which show you how to do it. 
 
-## How does it work (highlevel)
+## How does it work (high level)
 
 Fundamentally Graph Sync just syncs a list of maps and arrays which can
 be assembled into tree or graph structures as desired. Syncing is done by
@@ -74,11 +74,11 @@ refer to the same thing.
 
 First, Graph Sync has a *horibble name* and *bad speling*. Second it has not
 been mathematically proven. Though based on CRDT concepts and research papers
-I am not a mathematican and cannot *prove* it is conflict free. However it has
+I am not a mathematician and cannot *prove* it is conflict free. However it has
 lots of unit tests and I'm trying to shake out the bugs. We'll see how it goes.
 
 Next: the underlying API for graph sync is the processing of *operations*.  This makes
-it clear how to build your own implemenation, but makes the API very annoying to use.
+it clear how to build your own implementation, but makes the API very annoying to use.
 It really needs a higher level abstraction on top that is easier to use.
 
 ## Todos

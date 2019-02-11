@@ -41,6 +41,7 @@ class ObjectSyncProtocol {
         this.host = settings.host || this.makeGUID()
         this.waitBuffer = []
         this.historyBuffer = []
+        this.uuidmap = {}
         this._seq = 0
     }
     makeGUID() {
@@ -79,6 +80,11 @@ class ObjectSyncProtocol {
         }
         return true
     }
+    isDuplicateOperation(op) {
+        if(!this.uuidmap[op.uuid]) this.uuidmap[op.uuid] = 0
+        this.uuidmap[op.uuid] += 1
+        return (this.uuidmap[op.uuid] > 1)
+    }
 
     retryWaitBuffer() {
         // console.log("::: retrying")
@@ -98,6 +104,10 @@ class ObjectSyncProtocol {
         if(!this.isValidOperation(op)) {
             console.log("the operation is not valid. might be in the future")
             this.waitBuffer.push(op)
+            return
+        }
+        if(this.isDuplicateOperation(op)) {
+            console.warn("got a duplicate operation. you might be inefficient")
             return
         }
 
@@ -218,7 +228,7 @@ class ObjectSyncProtocol {
                     seq: op.seq
                 }
             })
-            console.log("need to apply default props")
+            // console.log("need to apply default props")
         }
 
         this.fire(op)
@@ -489,15 +499,8 @@ class CommandGenerator {
         while(true) {
             entry = arr._elements[n]
             n++
-            if(entry._tombstone === true) {
-                console.log("deleted skip it")
-                continue
-            }
-
-            if(count === index) {
-                console.log("found it")
-                break
-            }
+            if(entry._tombstone === true) continue
+            if(count === index) break
             count++
         }
 
