@@ -274,7 +274,7 @@ class ObjectSyncProtocol {
         if(obj[op.name] && obj[op.name].value === op.value)
             return console.warn("property already has this value, don't fire or change")
         if(!this.hasPropertyValue(op.object,op.name))
-            return console.error("trying to set a property that doesn't exist")
+            return console.error("trying to set a property that doesn't exist ",op)
 
         const old_prop = obj[op.name]
         const new_prop =  {
